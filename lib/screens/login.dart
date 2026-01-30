@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
-import 'package:wellguard_ai/constants.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:wellguard_ai/services/dio_client.dart';
+import 'package:wellguard_ai/models/login_request.dart';
+import 'package:dio/dio.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,72 +67,81 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse(AppConstants.loginUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      ).timeout(
-        AppConstants.connectionTimeout,
-        onTimeout: () {
-          throw Exception('Connection timeout. Please check if the backend server is running.');
-        },
+      final apiClient = DioClient.getApiClient();
+      final response = await apiClient.login(
+        LoginRequest(email: email, password: password),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
+      if (response.success) {
+        final data = response.data;
         
-        // Check if the response has success field
-        if (responseData['success'] == true) {
-          final data = responseData['data'];
-          
-          // Check if data is empty (new user) or has user info (existing user)
-          if (data == null || data.isEmpty || data is List && data.isEmpty) {
-            // New user - navigate to onboarding
-            if (mounted) {
-              Navigator.of(context).pushReplacementNamed(
-                '/onboarding',
-                arguments: 1, // Default userId, will be updated after onboarding
-              );
-            }
-          } else {
-            // Existing user - navigate to home
-            final int userId = data['userId'] ?? data['id'] ?? 1;
-            if (mounted) {
-              Navigator.of(context).pushReplacementNamed('/home');
-            }
-          }
-        } else {
-          // Success is false
+        if (data == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseData['message'] ?? 'Login failed')),
+              const SnackBar(content: Text('Invalid response from server')),
+            );
+          }
+          return;
+        }
+
+        final userId = data['userId'] is int 
+            ? data['userId'] as int 
+            : int.parse(data['userId'].toString());
+        final isExistingUser = data['isExistingUser'] is bool
+            ? data['isExistingUser'] as bool
+            : data['isExistingUser'].toString().toLowerCase() == 'true';
+        
+        // Check if it's a new user or existing user
+        if (!isExistingUser) {
+          // New user - navigate to onboarding with userId
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed(
+              '/onboarding',
+              arguments: userId,
+            );
+          }
+        } else {
+          // Existing user - save userId and navigate to home
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('userid', userId);
+          await prefs.setBool('isloggedin', true);
+          
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed(
+              '/home',
+              arguments: userId,
             );
           }
         }
       } else {
+        // Success is false
         if (mounted) {
-          try {
-            final errorData = jsonDecode(response.body);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(errorData['message'] ?? 'Login failed')),
-            );
-          } catch (_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Login failed with status: ${response.statusCode}')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Login failed')),
+          );
         }
       }
-    } on http.ClientException catch (e) {
+    } on DioException catch (e) {
       if (mounted) {
+        String errorMessage = 'Error: ${e.message}';
+        
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          errorMessage = 'Connection timeout. Please check if the backend server is running.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMessage = 'Cannot connect to server. Please ensure:\n'
+              '1. Backend is running on port 5000\n'
+              '2. Using correct IP (10.0.2.2 for emulator)';
+        } else if (e.response != null) {
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          }
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Cannot connect to server. Please ensure:\n'
-                '1. Backend is running on port 5000\n'
-                '2. Using correct IP (10.0.2.2 for emulator)'),
+            content: Text(errorMessage),
             duration: const Duration(seconds: 5),
           ),
         );

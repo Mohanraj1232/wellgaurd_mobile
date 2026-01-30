@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/models/contact_model.dart';
-import 'package:wellguard_ai/constants.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:wellguard_ai/models/onboarding_request.dart';
+import 'package:wellguard_ai/services/dio_client.dart';
+import 'package:dio/dio.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final int userId;
@@ -169,80 +169,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       // Prepare contacts data
-      final List<Map<String, dynamic>> contactsData = _contacts
-          .map((contact) => {
-                'name': contact.name,
-                'phoneNumber': contact.phoneNumber,
-                'whatsappNumber': contact.whatsappNumber,
-              })
+      final List<ContactData> contactsData = _contacts
+          .map((contact) => ContactData(
+                name: contact.name,
+                phoneNumber: contact.phoneNumber,
+                whatsappNumber: contact.whatsappNumber,
+              ))
           .toList();
 
-      // Post to endpoint
-      final response = await http.post(
-        Uri.parse(AppConstants.onboardingUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': widget.userId,
-          'contacts': contactsData,
-        }),
-      ).timeout(
-        AppConstants.connectionTimeout,
-        onTimeout: () {
-          throw Exception('Connection timeout. Please check if the backend server is running.');
-        },
+      final apiClient = DioClient.getApiClient();
+      final response = await apiClient.saveContacts(
+        OnboardingRequest(
+          userId: widget.userId,
+          contacts: contactsData,
+        ),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        
-        // Check if the response has success field
-        if (responseData['success'] == true) {
-          final prefs = await SharedPreferences.getInstance();
+      if (response.success) {
+        final prefs = await SharedPreferences.getInstance();
 
-          // Save login status and user id
-          await prefs.setBool('isloggedin', true);
-          await prefs.setInt('userid', widget.userId);
+        // Save login status and user id
+        await prefs.setBool('isloggedin', true);
+        await prefs.setInt('userid', widget.userId);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseData['message'] ?? 'Contacts saved successfully')),
-            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Contacts saved successfully'),
+            ),
+          );
 
-            // Navigate to home screen
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/home');
-              }
-            });
-          }
-        } else {
-          // Success is false
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseData['message'] ?? 'Error saving contacts')),
-            );
-          }
+          // Navigate to home screen
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          });
         }
       } else {
+        // Success is false
         if (mounted) {
-          try {
-            final errorData = jsonDecode(response.body);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(errorData['message'] ?? 'Error saving contacts')),
-            );
-          } catch (_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error saving contacts with status: ${response.statusCode}')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Error saving contacts')),
+          );
         }
       }
-    } on http.ClientException catch (e) {
+    } on DioException catch (e) {
       if (mounted) {
+        String errorMessage = 'Error saving contacts';
+        
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          errorMessage = 'Connection timeout. Please check if the backend server is running.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMessage = 'Cannot connect to server. Please ensure backend is running.';
+        } else if (e.response != null) {
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          }
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot connect to server. Please ensure backend is running.'),
-            duration: Duration(seconds: 5),
+          SnackBar(
+            content: Text(errorMessage),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -365,7 +356,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     fontSize: 12,
                                   ),
                                 ),
-                              if (contact.whatsappNumber.isNotEmpty)
+                              if (contact.whatsappNumber != null && contact.whatsappNumber!.isNotEmpty)
                                 Text(
                                   'WhatsApp: ${contact.whatsappNumber}',
                                   style: TextStyle(

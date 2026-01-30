@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
-import 'package:wellguard_ai/models/contact_model.dart';
-import 'package:wellguard_ai/constants.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:wellguard_ai/models/user_data.dart';
+import 'package:wellguard_ai/services/dio_client.dart';
+import 'package:dio/dio.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,8 +13,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Contact> _contacts = [];
-  bool _isLoadingContacts = true;
+  List<EmergencyContact>? _emergencyContacts;
+  String? _userEmail;
+  bool _isLoadingData = true;
   int? _userId;
 
   @override
@@ -40,8 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _userId = userId;
       });
 
-      // Fetch contacts from API
-      await _fetchContacts(userId);
+      // Fetch user data from API
+      await _fetchUserData(userId);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,83 +49,67 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
       setState(() {
-        _isLoadingContacts = false;
+        _isLoadingData = false;
       });
     }
   }
 
-  Future<void> _fetchContacts(int userId) async {
+  Future<void> _fetchUserData(int userId) async {
     try {
-      final response = await http.get(
-        Uri.parse(AppConstants.getUserInfoUrl(userId)),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(
-        AppConstants.connectionTimeout,
-        onTimeout: () {
-          throw Exception('Connection timeout. Please check if the backend server is running.');
-        },
-      );
+      final apiClient = DioClient.getApiClient();
+      final response = await apiClient.getUserInfo(userId);
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        
-        // Check if the response has success field
-        if (responseData['success'] == true) {
-          final data = responseData['data'];
-          final List<dynamic> contactsData = data['contacts'] ?? [];
+      if (response.success && response.data != null) {
+        final userData = response.data!;
 
-          setState(() {
-            _contacts = contactsData
-                .map((contact) => Contact.fromMap(contact as Map<String, dynamic>))
-                .toList();
-            _isLoadingContacts = false;
-          });
-        } else {
-          setState(() {
-            _isLoadingContacts = false;
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseData['message'] ?? 'Error fetching contacts')),
-            );
-          }
-        }
+        setState(() {
+          _emergencyContacts = userData.emergencyContact;
+          _userEmail = userData.email;
+          _isLoadingData = false;
+        });
       } else {
         setState(() {
-          _isLoadingContacts = false;
+          _isLoadingData = false;
         });
         if (mounted) {
-          try {
-            final errorData = jsonDecode(response.body);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(errorData['message'] ?? 'Error fetching contacts')),
-            );
-          } catch (_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error fetching contacts with status: ${response.statusCode}')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Error fetching user data')),
+          );
         }
       }
-    } on http.ClientException catch (e) {
+    } on DioException catch (e) {
       setState(() {
-        _isLoadingContacts = false;
+        _isLoadingData = false;
       });
       if (mounted) {
+        String errorMessage = 'Error fetching user data';
+        
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          errorMessage = 'Connection timeout. Please check if the backend server is running.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMessage = 'Cannot connect to server. Please ensure backend is running.';
+        } else if (e.response != null) {
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          }
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot connect to server. Please ensure backend is running.'),
-            duration: Duration(seconds: 5),
+          SnackBar(
+            content: Text(errorMessage),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
     } catch (e) {
       setState(() {
-        _isLoadingContacts = false;
+        _isLoadingData = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching contacts: ${e.toString()}')),
+          SnackBar(content: Text('Error fetching user data: ${e.toString()}')),
         );
       }
     }
@@ -279,99 +263,190 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        body: _isLoadingContacts
+        body: _isLoadingData
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Emergency Contacts',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _contacts.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // User Info Section
+                      if (_userEmail != null)
+                        Card(
+                          color: AppColors.bgCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
                               children: [
-                                Icon(
-                                  Icons.contacts_outlined,
-                                  size: 64,
-                                  color: AppColors.textMuted,
+                                CircleAvatar(
+                                  backgroundColor: AppColors.primary,
+                                  radius: 30,
+                                  child: Icon(
+                                    Icons.person,
+                                    color: AppColors.textWhite,
+                                    size: 30,
+                                  ),
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No contacts found',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: AppColors.textSecondary,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Your Account',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _userEmail!,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textMain,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _contacts.length,
-                            itemBuilder: (context, index) {
-                              final contact = _contacts[index];
-                              return Card(
-                                color: AppColors.bgCard,
-                                margin: const EdgeInsets.only(bottom: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: AppColors.primary,
-                                    child: Text(
-                                      contact.name[0].toUpperCase(),
-                                      style: const TextStyle(
-                                        color: AppColors.textWhite,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    contact.name,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textMain,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+
+                      // Emergency Contact Section
+                      Text(
+                        'Emergency Contact',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      _emergencyContacts == null || _emergencyContacts!.isEmpty
+                          ? Card(
+                              color: AppColors.bgCard,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Center(
+                                  child: Column(
                                     children: [
-                                      if (contact.phoneNumber.isNotEmpty)
-                                        Text(
-                                          'Phone: ${contact.phoneNumber}',
-                                          style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 12,
-                                          ),
+                                      Icon(
+                                        Icons.contacts_outlined,
+                                        size: 48,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'No emergency contact set',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: AppColors.textSecondary,
                                         ),
-                                      if (contact.whatsappNumber.isNotEmpty)
-                                        Text(
-                                          'WhatsApp: ${contact.whatsappNumber}',
-                                          style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            )
+                          : Column(
+                              children: _emergencyContacts!.map((contact) => Card(
+                              color: AppColors.bgCard,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor: AppColors.accentDanger,
+                                          radius: 25,
+                                          child: Text(
+                                            contact.name[0].toUpperCase(),
+                                            style: const TextStyle(
+                                              color: AppColors.textWhite,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 20,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                contact.name,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.textMain,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.phone,
+                                                    size: 16,
+                                                    color: AppColors.textSecondary,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'SMS: ${contact.smsNumber}',
+                                                    style: TextStyle(
+                                                      color: AppColors.textSecondary,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.chat,
+                                                    size: 16,
+                                                    color: AppColors.secondary,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'WhatsApp: ${contact.whatsappNumber}',
+                                                    style: TextStyle(
+                                                      color: AppColors.textSecondary,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )).toList(),
+                            ),
+                    ],
                   ),
-                ],
+                ),
               ),
       ),
     );

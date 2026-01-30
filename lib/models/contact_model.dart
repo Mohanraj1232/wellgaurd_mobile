@@ -1,12 +1,17 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'contact_model.g.dart';
+
+@JsonSerializable()
 class Contact {
   final String name;
   final String phoneNumber;
-  final String whatsappNumber;
+  final String? whatsappNumber;
 
   Contact({
     required this.name,
     required this.phoneNumber,
-    required this.whatsappNumber,
+    this.whatsappNumber,
   });
 
   Map<String, dynamic> toMap() {
@@ -21,9 +26,14 @@ class Contact {
     return Contact(
       name: map['name'] ?? '',
       phoneNumber: map['phoneNumber'] ?? '',
-      whatsappNumber: map['whatsappNumber'] ?? '',
+      whatsappNumber: map['whatsappNumber'],
     );
   }
+
+  factory Contact.fromJson(Map<String, dynamic> json) =>
+      _$ContactFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ContactToJson(this);
 
   @override
   String toString() => 'Contact(name: $name, phoneNumber: $phoneNumber, whatsappNumber: $whatsappNumber)';

@@ -3,7 +3,7 @@ class AppConstants {
   // Use 10.0.2.2 for Android emulator, or your computer's IP address for physical devices
   // Example: 'http://192.168.1.100' (replace with your actual IP)
   static const String apiBaseUrl = 'http://10.0.2.2';  // Android emulator
-  static const int apiPort = 8080;
+  static const int apiPort = 5000;
   
   // Alternative configurations (uncomment the one you need):
   // static const String apiBaseUrl = 'http://192.168.1.100';  // Physical device (replace with your IP)
