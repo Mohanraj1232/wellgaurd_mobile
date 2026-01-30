@@ -1,26 +1,30 @@
 class Contact {
   final String name;
-  final String number;
+  final String phoneNumber;
+  final String whatsappNumber;
 
   Contact({
     required this.name,
-    required this.number,
+    required this.phoneNumber,
+    required this.whatsappNumber,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
-      'number': number,
+      'phoneNumber': phoneNumber,
+      'whatsappNumber': whatsappNumber,
     };
   }
 
   factory Contact.fromMap(Map<String, dynamic> map) {
     return Contact(
       name: map['name'] ?? '',
-      number: map['number'] ?? '',
+      phoneNumber: map['phoneNumber'] ?? '',
+      whatsappNumber: map['whatsappNumber'] ?? '',
     );
   }
 
   @override
-  String toString() => 'Contact(name: $name, number: $number)';
+  String toString() => 'Contact(name: $name, phoneNumber: $phoneNumber, whatsappNumber: $whatsappNumber)';
 }

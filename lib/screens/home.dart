@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/models/contact_model.dart';
+import 'package:wellguard_ai/constants.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,152 +16,119 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Contact> _contacts = [];
   bool _isLoadingContacts = true;
+  int? _userId;
 
   @override
   void initState() {
     super.initState();
-    _loadContacts();
+    _loadUserAndContacts();
   }
 
-  Future<void> _loadContacts() async {
+  Future<void> _loadUserAndContacts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final count = prefs.getInt('contacts_count') ?? 0;
+      final userId = prefs.getInt('userid');
+
+      if (userId == null) {
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+        return;
+      }
 
       setState(() {
-        _contacts = [];
-        for (int i = 0; i < count; i++) {
-          final name = prefs.getString('contact${i + 1}name') ?? '';
-          final number = prefs.getString('contact${i + 1}number') ?? '';
-          if (name.isNotEmpty && number.isNotEmpty) {
-            _contacts.add(Contact(name: name, number: number));
+        _userId = userId;
+      });
+
+      // Fetch contacts from API
+      await _fetchContacts(userId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading user: $e')),
+        );
+      }
+      setState(() {
+        _isLoadingContacts = false;
+      });
+    }
+  }
+
+  Future<void> _fetchContacts(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse(AppConstants.getUserInfoUrl(userId)),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        AppConstants.connectionTimeout,
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check if the backend server is running.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        // Check if the response has success field
+        if (responseData['success'] == true) {
+          final data = responseData['data'];
+          final List<dynamic> contactsData = data['contacts'] ?? [];
+
+          setState(() {
+            _contacts = contactsData
+                .map((contact) => Contact.fromMap(contact as Map<String, dynamic>))
+                .toList();
+            _isLoadingContacts = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingContacts = false;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseData['message'] ?? 'Error fetching contacts')),
+            );
           }
         }
+      } else {
+        setState(() {
+          _isLoadingContacts = false;
+        });
+        if (mounted) {
+          try {
+            final errorData = jsonDecode(response.body);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorData['message'] ?? 'Error fetching contacts')),
+            );
+          } catch (_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error fetching contacts with status: ${response.statusCode}')),
+            );
+          }
+        }
+      }
+    } on http.ClientException catch (e) {
+      setState(() {
         _isLoadingContacts = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot connect to server. Please ensure backend is running.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       setState(() {
         _isLoadingContacts = false;
       });
-    }
-  }
-
-  Future<void> _saveContacts() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('contacts_count', _contacts.length);
-
-      for (int i = 0; i < _contacts.length; i++) {
-        await prefs.setString('contact${i + 1}name', _contacts[i].name);
-        await prefs.setString('contact${i + 1}number', _contacts[i].number);
-      }
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contacts updated successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving contacts: $e')),
+          SnackBar(content: Text('Error fetching contacts: ${e.toString()}')),
         );
       }
     }
-  }
-
-  void _addOrEditContact({Contact? contact, int? index}) {
-    final TextEditingController nameController =
-        TextEditingController(text: contact?.name ?? '');
-    final TextEditingController numberController =
-        TextEditingController(text: contact?.number ?? '');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: Text(
-          contact == null ? 'Add Contact' : 'Edit Contact',
-          style: TextStyle(color: AppColors.primary),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                hintText: 'Contact Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: AppColors.bgHover,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: numberController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: 'Phone Number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: AppColors.bgHover,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.isNotEmpty &&
-                  numberController.text.isNotEmpty) {
-                setState(() {
-                  if (contact == null) {
-                    _contacts.add(
-                      Contact(
-                        name: nameController.text,
-                        number: numberController.text,
-                      ),
-                    );
-                  } else {
-                    _contacts[index!] = Contact(
-                      name: nameController.text,
-                      number: numberController.text,
-                    );
-                  }
-                });
-                _saveContacts();
-                Navigator.pop(context);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: Text(
-              contact == null ? 'Add' : 'Update',
-              style: const TextStyle(color: AppColors.textWhite),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _removeContact(int index) {
-    setState(() {
-      _contacts.removeAt(index);
-    });
-    _saveContacts();
   }
 
   Future<void> _logout() async {
@@ -279,15 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.contacts),
-                title: const Text('Add Contacts'),
-                iconColor: AppColors.primary,
-                onTap: () {
-                  Navigator.pop(context);
-                  _showContactsModal();
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.warning),
                 title: const Text('SOS'),
                 iconColor: AppColors.accentWarning,
@@ -318,160 +279,100 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.shield_rounded,
-                size: 80,
-                color: AppColors.primary,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Welcome to WellGaurd AI',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your Safety, Our Priority',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderLight),
-                ),
-                child: Text(
-                  'Emergency Contacts: ${_contacts.length}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textMain,
-                    fontWeight: FontWeight.bold,
+        body: _isLoadingContacts
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Emergency Contacts',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showContactsModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Emergency Contacts',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          Expanded(
-            child: _isLoadingContacts
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : _contacts.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No contacts added',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _contacts.length,
-                        itemBuilder: (context, index) {
-                          final contact = _contacts[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              child: Text(
-                                contact.name[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: AppColors.textWhite,
+                  Expanded(
+                    child: _contacts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.contacts_outlined,
+                                  size: 64,
+                                  color: AppColors.textMuted,
                                 ),
-                              ),
-                            ),
-                            title: Text(contact.name),
-                            subtitle: Text(contact.number),
-                            trailing: PopupMenuButton(
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                  child: const Text('Edit'),
-                                  onTap: () => _addOrEditContact(
-                                    contact: contact,
-                                    index: index,
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No contacts found',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.textSecondary,
                                   ),
-                                ),
-                                PopupMenuItem(
-                                  child: const Text('Delete'),
-                                  onTap: () => _removeContact(index),
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _addOrEditContact();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _contacts.length,
+                            itemBuilder: (context, index) {
+                              final contact = _contacts[index];
+                              return Card(
+                                color: AppColors.bgCard,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: AppColors.primary,
+                                    child: Text(
+                                      contact.name[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: AppColors.textWhite,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    contact.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textMain,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (contact.phoneNumber.isNotEmpty)
+                                        Text(
+                                          'Phone: ${contact.phoneNumber}',
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      if (contact.whatsappNumber.isNotEmpty)
+                                        Text(
+                                          'WhatsApp: ${contact.whatsappNumber}',
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add, color: AppColors.textWhite),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add New Contact',
-                        style: TextStyle(
-                          color: AppColors.textWhite,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-            ),
-          ),
-        ],
       ),
     );
   }

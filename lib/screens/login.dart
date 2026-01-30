@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wellguard_ai/theme/colors.dart';
+import 'package:wellguard_ai/constants.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isEmailValid = true;
+  bool _isLoading = false;
 
   void _validateEmail(String value) {
     setState(() {
@@ -52,15 +56,98 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Call user validation function (can be implemented later)
+    // Call user validation function
     _validateUser(_emailController.text, _passwordController.text);
   }
 
-  void _validateUser(String email, String password) {
-    // This function will be used for actual user validation in the future
-    // For now, we'll just navigate to onboarding with userId 1
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/onboarding', arguments: 1);
+  void _validateUser(String email, String password) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.loginUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      ).timeout(
+        AppConstants.connectionTimeout,
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check if the backend server is running.');
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        
+        // Check if the response has success field
+        if (responseData['success'] == true) {
+          final data = responseData['data'];
+          
+          // Check if data is empty (new user) or has user info (existing user)
+          if (data == null || data.isEmpty || data is List && data.isEmpty) {
+            // New user - navigate to onboarding
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(
+                '/onboarding',
+                arguments: 1, // Default userId, will be updated after onboarding
+              );
+            }
+          } else {
+            // Existing user - navigate to home
+            final int userId = data['userId'] ?? data['id'] ?? 1;
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          }
+        } else {
+          // Success is false
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseData['message'] ?? 'Login failed')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          try {
+            final errorData = jsonDecode(response.body);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorData['message'] ?? 'Login failed')),
+            );
+          } catch (_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Login failed with status: ${response.statusCode}')),
+            );
+          }
+        }
+      }
+    } on http.ClientException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cannot connect to server. Please ensure:\n'
+                '1. Backend is running on port 5000\n'
+                '2. Using correct IP (10.0.2.2 for emulator)'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -217,21 +304,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _handleLogin,
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textWhite,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.textWhite,
+                            ),
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textWhite,
+                          ),
+                        ),
                 ),
               ),
             ],

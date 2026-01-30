@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/models/contact_model.dart';
+import 'package:wellguard_ai/constants.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class OnboardingScreen extends StatefulWidget {
   final int userId;
@@ -15,7 +18,15 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Contact> _contacts = [];
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _numberController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _whatsappController = TextEditingController();
+  bool _isLoading = false;
+
+  bool _isValidPhoneNumber(String phone) {
+    // Basic phone number validation (10-15 digits with optional + and -)
+    final regex = RegExp(r'^[+]?[0-9]{10,15}$');
+    return phone.isEmpty || regex.hasMatch(phone.replaceAll('-', ''));
+  }
 
   void _addContact() {
     showDialog(
@@ -26,34 +37,63 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'Add Contact',
           style: TextStyle(color: AppColors.primary),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                hintText: 'Contact Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  hintText: 'Contact Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.bgHover,
                 ),
-                filled: true,
-                fillColor: AppColors.bgHover,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _numberController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: 'Phone Number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'Phone Number (10-15 digits)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.bgHover,
+                  errorText: _phoneController.text.isNotEmpty &&
+                          !_isValidPhoneNumber(_phoneController.text)
+                      ? 'Invalid phone number'
+                      : null,
                 ),
-                filled: true,
-                fillColor: AppColors.bgHover,
+                onChanged: (value) {
+                  setState(() {});
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: _whatsappController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'WhatsApp Number (10-15 digits)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.bgHover,
+                  errorText: _whatsappController.text.isNotEmpty &&
+                          !_isValidPhoneNumber(_whatsappController.text)
+                      ? 'Invalid WhatsApp number'
+                      : null,
+                ),
+                onChanged: (value) {
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -65,24 +105,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (_nameController.text.isNotEmpty &&
-                  _numberController.text.isNotEmpty) {
-                setState(() {
-                  _contacts.add(
-                    Contact(
-                      name: _nameController.text,
-                      number: _numberController.text,
-                    ),
-                  );
-                });
-                _nameController.clear();
-                _numberController.clear();
-                Navigator.pop(context);
-              } else {
+              if (_nameController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill all fields')),
+                  const SnackBar(content: Text('Please enter contact name')),
                 );
+                return;
               }
+              if (_phoneController.text.isEmpty &&
+                  _whatsappController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          'Please enter phone number or WhatsApp number')),
+                );
+                return;
+              }
+              if (_phoneController.text.isNotEmpty &&
+                  !_isValidPhoneNumber(_phoneController.text)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid phone number')),
+                );
+                return;
+              }
+              if (_whatsappController.text.isNotEmpty &&
+                  !_isValidPhoneNumber(_whatsappController.text)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid WhatsApp number')),
+                );
+                return;
+              }
+
+              setState(() {
+                _contacts.add(
+                  Contact(
+                    name: _nameController.text,
+                    phoneNumber: _phoneController.text,
+                    whatsappNumber: _whatsappController.text,
+                  ),
+                );
+              });
+              _nameController.clear();
+              _phoneController.clear();
+              _whatsappController.clear();
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -98,39 +163,100 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _saveContacts() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // Prepare contacts data
+      final List<Map<String, dynamic>> contactsData = _contacts
+          .map((contact) => {
+                'name': contact.name,
+                'phoneNumber': contact.phoneNumber,
+                'whatsappNumber': contact.whatsappNumber,
+              })
+          .toList();
 
-      // Save login status and user id
-      await prefs.setBool('isloggedin', true);
-      await prefs.setInt('userid', widget.userId);
+      // Post to endpoint
+      final response = await http.post(
+        Uri.parse(AppConstants.onboardingUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': widget.userId,
+          'contacts': contactsData,
+        }),
+      ).timeout(
+        AppConstants.connectionTimeout,
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check if the backend server is running.');
+        },
+      );
 
-      // Save contacts count
-      await prefs.setInt('contacts_count', _contacts.length);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        
+        // Check if the response has success field
+        if (responseData['success'] == true) {
+          final prefs = await SharedPreferences.getInstance();
 
-      // Save each contact
-      for (int i = 0; i < _contacts.length; i++) {
-        await prefs.setString('contact${i + 1}name', _contacts[i].name);
-        await prefs.setString('contact${i + 1}number', _contacts[i].number);
+          // Save login status and user id
+          await prefs.setBool('isloggedin', true);
+          await prefs.setInt('userid', widget.userId);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseData['message'] ?? 'Contacts saved successfully')),
+            );
+
+            // Navigate to home screen
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                Navigator.of(context).pushReplacementNamed('/home');
+              }
+            });
+          }
+        } else {
+          // Success is false
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseData['message'] ?? 'Error saving contacts')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          try {
+            final errorData = jsonDecode(response.body);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorData['message'] ?? 'Error saving contacts')),
+            );
+          } catch (_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error saving contacts with status: ${response.statusCode}')),
+            );
+          }
+        }
       }
-
+    } on http.ClientException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contacts saved successfully')),
+          const SnackBar(
+            content: Text('Cannot connect to server. Please ensure backend is running.'),
+            duration: Duration(seconds: 5),
+          ),
         );
-
-        // Navigate to home screen
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/home');
-          }
-        });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving contacts: $e')),
+          SnackBar(content: Text('Error saving contacts: ${e.toString()}')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -144,7 +270,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _numberController.dispose();
+    _phoneController.dispose();
+    _whatsappController.dispose();
     super.dispose();
   }
 
@@ -227,11 +354,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               color: AppColors.textMain,
                             ),
                           ),
-                          subtitle: Text(
-                            contact.number,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                            ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (contact.phoneNumber.isNotEmpty)
+                                Text(
+                                  'Phone: ${contact.phoneNumber}',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              if (contact.whatsappNumber.isNotEmpty)
+                                Text(
+                                  'WhatsApp: ${contact.whatsappNumber}',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
                           ),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline),
@@ -280,21 +422,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _saveContacts,
+                    onPressed: _isLoading ? null : _saveContacts,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Save & Continue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textWhite,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.textWhite,
+                              ),
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Save & Continue',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textWhite,
+                            ),
+                          ),
                   ),
                 ),
               ],
