@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/screens/login.dart';
 import 'package:wellguard_ai/screens/onboarding.dart';
 import 'package:wellguard_ai/screens/home.dart';
 import 'package:wellguard_ai/screens/sos.dart';
 import 'package:wellguard_ai/screens/emergency_sos.dart';
+import 'package:wellguard_ai/screens/location_entry_page.dart';
+import 'package:wellguard_ai/screens/map_page.dart';
+import 'package:wellguard_ai/providers/journey_provider.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => JourneyProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -63,6 +75,8 @@ class _MyAppState extends State<MyApp> {
         '/home': (context) => const HomeScreen(),
         '/sos': (context) => const SOSScreen(),
         '/emergency_sos': (context) => const EmergencySOSScreen(),
+        '/location_entry': (context) => const LocationEntryPage(),
+        '/map': (context) => const MapPage(),
       },
     );
   }

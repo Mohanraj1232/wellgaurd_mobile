@@ -1,7 +1,7 @@
 # WellGuard AI - Copilot Instructions
 
 ## Project Overview
-WellGuard AI is a Flutter mobile safety application that enables users to securely manage emergency contacts and trigger SOS alerts. The app implements a complete authentication flow with backend integration, persistent contact management, and emergency notification system.
+WellGuard AI is a Flutter mobile safety application that enables users to securely manage emergency contacts, track journeys with real-time location monitoring, and trigger SOS alerts. The app implements a complete authentication flow with backend integration, persistent contact management, safety-scored routing, and emergency notification system.
 
 **Package Name:** `wellguard_ai` | **SDK:** Flutter 3.10.7+ | **Backend:** Node.js API on port 5000
 
@@ -12,7 +12,7 @@ WellGuard AI is a Flutter mobile safety application that enables users to secure
 ### App Structure
 ```
 lib/
-├── main.dart                    # App entry point with auth check & route setup
+├── main.dart                    # App entry point with Provider setup & routes
 ├── constants.dart               # API configuration (baseUrl, port, endpoints)
 ├── theme/
 │   └── colors.dart              # Centralized color constants (AppColors class)
@@ -20,14 +20,20 @@ lib/
 │   ├── user_data.dart           # User model with name, email, emergency contacts
 │   ├── login_request.dart       # Login request (name, email, password)
 │   ├── onboarding_request.dart  # Contact submission model
+│   ├── route_data.dart          # Route, road info, location update models
 │   └── api_response.dart        # Generic API response wrapper
+├── providers/
+│   └── journey_provider.dart    # Journey state management (ChangeNotifier)
 ├── services/
 │   ├── dio_client.dart          # Dio singleton with interceptors
-│   └── api_client.dart          # API endpoints (login, onboarding, getUserInfo)
+│   ├── api_client.dart          # API endpoints (auth, map, SOS)
+│   └── location_service.dart    # Location permissions & GPS tracking
 └── screens/
     ├── login.dart               # Auth screen with name field
     ├── onboarding.dart          # Emergency contact setup during signup
-    ├── home.dart                # Main hub with user info & sidebar menu
+    ├── home.dart                # Main hub with Start Journey button
+    ├── location_entry_page.dart # Destination & time limit input
+    ├── map_page.dart            # Google Maps with real-time tracking
     ├── emergency_contacts.dart  # Dedicated page for viewing all contacts
     ├── sos.dart                 # Standard SOS alert screen
     └── emergency_sos.dart       # Emergency SOS alert screen
@@ -41,8 +47,10 @@ lib/
    - New user → OnboardingScreen (add emergency contacts)
    - Existing user → HomeScreen
 3. **Onboarding** → Save contacts to backend + SharedPreferences → HomeScreen
-4. **HomeScreen** → Sidebar menu: SOS, Emergency SOS, Emergency Contacts (page), Logout
-5. **Emergency Contacts Page** → Full-screen view of all contacts with details
+4. **HomeScreen** → Start New Journey button, Quick Actions, Sidebar menu
+5. **LocationEntryPage** → Enter destination + time limit → API fetches route
+6. **MapPage** → Real-time GPS tracking every 1 second, SOS button
+7. **Journey Complete** → User arrives or time exceeded triggers auto-SOS
 
 ### Backend API Integration
 **Dio client setup:** [lib/services/dio_client.dart](lib/services/dio_client.dart) with automatic interceptors and timeout handling.
@@ -54,9 +62,16 @@ lib/
 
 **API Endpoints (in [lib/services/api_client.dart](lib/services/api_client.dart)):**
 ```dart
+// Auth endpoints
 POST /api/auth/login           // LoginRequest(name, email, password) → userId, isExistingUser
 POST /api/auth/onboarding      // OnboardingRequest(contacts) → success
 GET  /api/info/user/{userId}   // → UserData(name, email, emergencyContacts)
+
+// Map/Journey endpoints
+POST /api/map/fetch-route      // Create route with safety score
+PUT  /api/map/update-location  // Update current location during journey
+POST /api/map/sos              // Trigger SOS alert
+POST /api/map/cancel-route     // Cancel active journey
 ```
 
 ### Data Models
@@ -64,6 +79,31 @@ GET  /api/info/user/{userId}   // → UserData(name, email, emergencyContacts)
 - **EmergencyContact:** name, smsNumber (phoneNumber), whatsappNumber
 - **LoginRequest:** name, email, password (sent to backend)
 - **OnboardingRequest:** userId, emergencyContacts array
+- **RouteData:** routeId, safetyScore, polyline, distance, duration, riskLevel, roadsUsed
+- **LocationUpdateResponse:** status, distanceToDestination, minutesRemaining, sosTriggered
+
+### Journey Tracking Flow
+1. **LocationEntryPage** → User enters destination + time limit
+2. **API Call** → `POST /api/map/fetch-route` with current location
+3. **MapPage** → Display route on Google Maps with safety score
+4. **Location Timer** → Every 1 second, call `PUT /api/map/update-location` with stored coordinates
+5. **Completion** → Status becomes "completed" when user arrives
+6. **Auto-SOS** → If time exceeded, backend triggers SOS automatically
+
+### Hardcoded Start Location (Development)
+**Location:** 12.914293, 80.168757 (configured in [lib/screens/location_entry_page.dart](lib/screens/location_entry_page.dart))
+```dart
+static const double _hardcodedLatitude = 12.914293;
+static const double _hardcodedLongitude = 80.168757;
+```
+To use real GPS, call `_fetchCurrentLocation()` instead of `_setHardcodedLocation()` in `_initialize()`.
+
+**Important:** The MapPage uses the stored `_currentLatLng` for location updates (not real-time GPS), preventing emulator default coordinates from overriding the hardcoded location during development.
+
+### Map Page Features
+- **Auto-follow toggle**: Map auto-follows user location by default. When user interacts with the map (pan/zoom), auto-follow disables. Press "My Location" button to re-enable.
+- **Distance display**: Backend returns distance in meters; `JourneyProvider.formattedDistance` auto-converts to km when ≥ 1000m.
+- **Location updates**: Uses stored coordinates from JourneyProvider, not real-time GPS (for development with hardcoded location).
 
 ---
 
@@ -171,6 +211,25 @@ flutter run                  # Run on connected device/emulator
   - `dio: ^5.x` (HTTP client with interceptors)
   - `shared_preferences: ^2.5.4` (local auth state)
   - `json_annotation` + `build_runner` (serialization)
+  - `geolocator: ^13.x` (GPS location tracking)
+  - `google_maps_flutter: ^2.x` (Map display)
+  - `flutter_polyline_points: ^2.x` (Route polyline decoding)
+  - `provider: ^6.x` (State management)
+  - `permission_handler: ^11.x` (Location permissions)
+  - `intl: ^0.20.x` (Date/time formatting)
+
+### Google Maps Setup
+**Android:** Add API key in [android/app/src/main/AndroidManifest.xml](android/app/src/main/AndroidManifest.xml):
+```xml
+<meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="YOUR_API_KEY"/>
+```
+
+**iOS:** Add API key in [ios/Runner/AppDelegate.swift](ios/Runner/AppDelegate.swift):
+```swift
+GMSServices.provideAPIKey("YOUR_API_KEY")
+```
 
 ### Code Generation
 JSON models use `json_annotation`. After modifying models, run:
@@ -228,13 +287,19 @@ Future<void> _fetchUserData(int userId) async {
 ✅ Emergency contacts from backend
 ✅ Local state persistence with SharedPreferences
 ✅ Error handling for network issues
+✅ Journey tracking with real-time location updates
+✅ Google Maps integration with route polyline display
+✅ Safety score calculation and display
+✅ Manual SOS trigger with confirmation dialog
+✅ Auto-SOS when time limit exceeded
+✅ Journey cancellation
 
 ### To Implement
 - SOS notification delivery to emergency contacts (SMS/WhatsApp API)
-- Location capture and sharing during SOS
 - Push notifications for incoming emergency alerts
-- Background task execution
+- Background location tracking (WorkManager/Background Fetch)
 - Contact editing/management UI
+- Journey history
 
 ---
 
@@ -248,3 +313,9 @@ Future<void> _fetchUserData(int userId) async {
 | Emergency contacts empty | Verify onboarding saved contacts to backend; check backend persistence |
 | Back button behavior wrong | Check `WillPopScope(onWillPop: () async => false)` is applied to HomeScreen |
 | Colors inconsistent | Verify imports use `AppColors` from `theme/colors.dart` (typo in package name!) |
+| MissingPluginException | Run `flutter clean` then `flutter run` to rebuild native plugins |
+| Google Maps not showing | Verify API key is set in AndroidManifest.xml and AppDelegate.swift |
+| Location permission denied | Check permissions in AndroidManifest.xml and Info.plist; test on real device |
+| Route polyline not displaying | Verify backend returns valid encoded polyline string |
+| Map jumping to wrong location | MapPage uses stored coordinates for PUT calls; ensure hardcoded location is set correctly in LocationEntryPage |
+| Distance showing in meters | JourneyProvider.formattedDistance auto-converts; verify you're using this getter, not raw distance value |
