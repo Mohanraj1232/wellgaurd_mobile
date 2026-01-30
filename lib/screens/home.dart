@@ -15,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<EmergencyContact>? _emergencyContacts;
+  String? _userName;
   String? _userEmail;
   bool _isLoadingData = true;
   int? _userId;
@@ -65,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         setState(() {
           _emergencyContacts = userData.emergencyContact;
+          _userName = userData.name;
           _userEmail = userData.email;
           _isLoadingData = false;
         });
@@ -312,6 +314,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
+                                      if (_userName != null)
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _userName!,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textMain,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                          ],
+                                        ),
                                       Text(
                                         'Your Account',
                                         style: TextStyle(
@@ -321,11 +338,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        _userEmail!,
+                                        _userEmail ?? 'N/A',
                                         style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textMain,
+                                          fontSize: 14,
+                                          color: AppColors.textSecondary,
                                         ),
                                       ),
                                     ],

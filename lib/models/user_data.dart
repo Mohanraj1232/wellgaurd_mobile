@@ -6,12 +6,14 @@ part 'user_data.g.dart';
 class UserData {
   final int? userId;
   final int? id;
+  final String? name;
   final String? email;
   final List<EmergencyContact>? emergencyContact;
 
   UserData({
     this.userId,
     this.id,
+    this.name,
     this.email,
     this.emergencyContact,
   });
