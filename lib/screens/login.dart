@@ -13,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -36,6 +37,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+
     if (_emailController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter email')),
@@ -58,10 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     // Call user validation function
-    _validateUser(_emailController.text, _passwordController.text);
+    _validateUser(_nameController.text, _emailController.text, _passwordController.text);
   }
 
-  void _validateUser(String email, String password) async {
+  void _validateUser(String name, String email, String password) async {
     setState(() {
       _isLoading = true;
     });
@@ -69,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final apiClient = DioClient.getApiClient();
       final response = await apiClient.login(
-        LoginRequest(email: email, password: password),
+        LoginRequest(name: name, email: email, password: password),
       );
 
       if (response.success) {
@@ -163,6 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -216,6 +225,37 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 50),
+
+              // Name Field
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  hintText: 'Full Name',
+                  prefixIcon: const Icon(Icons.person_outlined),
+                  prefixIconColor: AppColors.textSecondary,
+                  filled: true,
+                  fillColor: AppColors.bgCard,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.borderLight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.borderLight,
+                      width: 2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
               // Email Field
               TextField(

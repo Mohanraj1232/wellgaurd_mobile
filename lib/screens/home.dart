@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/models/user_data.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
+import 'package:wellguard_ai/screens/emergency_contacts.dart';
 import 'package:dio/dio.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -250,6 +251,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.of(context).pushNamed('/emergency_sos');
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.contacts),
+                title: const Text('Emergency Contacts'),
+                iconColor: AppColors.accentDanger,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => EmergencyContactsScreen(
+                        contacts: _emergencyContacts ?? [],
+                      ),
+                    ),
+                  );
+                },
+              ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout),
@@ -320,130 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       const SizedBox(height: 24),
-
-                      // Emergency Contact Section
-                      Text(
-                        'Emergency Contact',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      
-                      _emergencyContacts == null || _emergencyContacts!.isEmpty
-                          ? Card(
-                              color: AppColors.bgCard,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Center(
-                                  child: Column(
-                                    children: [
-                                      Icon(
-                                        Icons.contacts_outlined,
-                                        size: 48,
-                                        color: AppColors.textMuted,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'No emergency contact set',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Column(
-                              children: _emergencyContacts!.map((contact) => Card(
-                              color: AppColors.bgCard,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        CircleAvatar(
-                                          backgroundColor: AppColors.accentDanger,
-                                          radius: 25,
-                                          child: Text(
-                                            contact.name[0].toUpperCase(),
-                                            style: const TextStyle(
-                                              color: AppColors.textWhite,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                contact.name,
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.textMain,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.phone,
-                                                    size: 16,
-                                                    color: AppColors.textSecondary,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'SMS: ${contact.smsNumber}',
-                                                    style: TextStyle(
-                                                      color: AppColors.textSecondary,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.chat,
-                                                    size: 16,
-                                                    color: AppColors.secondary,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'WhatsApp: ${contact.whatsappNumber}',
-                                                    style: TextStyle(
-                                                      color: AppColors.textSecondary,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )).toList(),
-                            ),
                     ],
                   ),
                 ),
