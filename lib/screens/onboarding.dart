@@ -24,7 +24,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   bool _isValidPhoneNumber(String phone) {
     // Basic phone number validation (10-15 digits with optional + and -)
-    final regex = RegExp(r'^[+]?[0-9]{10,15}$');
+    final regex = RegExp(r'^[+]?[0-9]{10,10}$');
     return phone.isEmpty || regex.hasMatch(phone.replaceAll('-', ''));
   }
 
@@ -43,8 +43,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               TextField(
                 controller: _nameController,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   hintText: 'Contact Name',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -56,8 +58,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
-                  hintText: 'Phone Number (10-15 digits)',
+                  hintText: 'Phone Number',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -76,8 +80,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               TextField(
                 controller: _whatsappController,
                 keyboardType: TextInputType.phone,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
-                  hintText: 'WhatsApp Number (10-15 digits)',
+                  hintText: 'WhatsApp Number',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

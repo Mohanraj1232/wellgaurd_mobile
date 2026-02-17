@@ -35,8 +35,8 @@ lib/
     ├── location_entry_page.dart # Destination & time limit input
     ├── map_page.dart            # Google Maps with real-time tracking
     ├── emergency_contacts.dart  # Dedicated page for viewing all contacts
-    ├── sos.dart                 # Standard SOS alert screen
-    └── emergency_sos.dart       # Emergency SOS alert screen
+    ├── sos.dart                 # Standard SOS alert screen (calls API on open)
+    └── emergency_sos.dart       # Emergency SOS alert screen (calls API on open)
 ```
 
 ### Navigation Flow
@@ -70,8 +70,22 @@ GET  /api/info/user/{userId}   // → UserData(name, email, emergencyContacts)
 // Map/Journey endpoints
 POST /api/map/fetch-route      // Create route with safety score
 PUT  /api/map/update-location  // Update current location during journey
-POST /api/map/sos              // Trigger SOS alert
+POST /api/map/sos              // Trigger SOS alert with location (see below)
 POST /api/map/cancel-route     // Cancel active journey
+```
+
+**SOS Endpoint Request Body:**
+```json
+{
+  "userId": 123,
+  "routeId": "route-id-here",
+  "message": "I feel unsafe, please help!",
+  "currentLocation": {
+    "latitude": 13.0827,
+    "longitude": 80.2707,
+    "timestamp": "2026-01-30T10:15:00.000Z"
+  }
+}
 ```
 
 ### Data Models
@@ -187,6 +201,29 @@ Drawer in home.dart contains:
 - Logout tile with confirmation dialog
 
 Emergency contacts passed as constructor argument: `EmergencyContactsScreen(contacts: _emergencyContacts ?? [])`
+
+### 7. **SOS Screen Pattern**
+Both [lib/screens/sos.dart](lib/screens/sos.dart) and [lib/screens/emergency_sos.dart](lib/screens/emergency_sos.dart) are `StatefulWidget` screens that:
+1. **Auto-trigger SOS on open**: Call `triggerSOS()` API in `initState()`
+2. **Get current location**: Use GPS via Geolocator, fallback to JourneyProvider
+3. **Show loading state**: Display spinner while sending SOS
+4. **Handle errors**: Show error message with retry button
+5. **Show success**: Display confirmation with notifications sent count
+
+**SOS messages:**
+- Standard SOS: `"I feel unsafe, please help!"`
+- Emergency SOS: `"EMERGENCY! I am in danger and need immediate help!"`
+
+**API call pattern:**
+```dart
+final response = await apiClient.triggerSOS(
+  userId: userId,
+  routeId: routeId,  // Empty string if no active journey
+  latitude: latitude,
+  longitude: longitude,
+  message: 'I feel unsafe, please help!',
+);
+```
 
 ---
 

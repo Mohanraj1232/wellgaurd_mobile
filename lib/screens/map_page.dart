@@ -298,6 +298,8 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       final response = await apiClient.triggerSOS(
         userId: _userId!,
         routeId: routeId,
+        latitude: _currentLatLng?.latitude ?? journeyProvider.currentLatitude ?? 0,
+        longitude: _currentLatLng?.longitude ?? journeyProvider.currentLongitude ?? 0,
       );
 
       if (response.success) {

@@ -312,9 +312,12 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
               // Destination Input
               TextFormField(
                 controller: _destinationController,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   labelText: 'Enter Destination',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary),
                   hintText: 'e.g., Mandaveli, Chennai',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   prefixIcon: const Icon(
                     Icons.location_on,
                     color: AppColors.primary,
@@ -351,9 +354,12 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
               TextFormField(
                 controller: _timeLimitController,
                 keyboardType: TextInputType.number,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   labelText: 'Approx. Time to Reach (minutes)',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary),
                   hintText: 'e.g., 30',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   prefixIcon: const Icon(
                     Icons.access_time,
                     color: AppColors.primary,

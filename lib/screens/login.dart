@@ -190,47 +190,23 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Logo
               Container(
-                height: 120,
-                width: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Center(
-                  child: Text(
-                    'WG',
-                    style: TextStyle(
-                      color: AppColors.textWhite,
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                height: 150,
+                width: 200,
+                child: Image.asset(
+                  'lib/assests/logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 40),
-              Text(
-                'WellGaurd AI',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your Safety, Our Priority',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              
               const SizedBox(height: 50),
 
               // Name Field
               TextField(
                 controller: _nameController,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   hintText: 'Full Name',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   prefixIcon: const Icon(Icons.person_outlined),
                   prefixIconColor: AppColors.textSecondary,
                   filled: true,
@@ -261,8 +237,10 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _emailController,
                 onChanged: _validateEmail,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   hintText: 'Email',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   prefixIcon: const Icon(Icons.email_outlined),
                   prefixIconColor: AppColors.textSecondary,
                   filled: true,
@@ -310,8 +288,10 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
+                style: const TextStyle(color: AppColors.textMain),
                 decoration: InputDecoration(
                   hintText: 'Password',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
                   prefixIcon: const Icon(Icons.lock_outlined),
                   prefixIconColor: AppColors.textSecondary,
                   suffixIcon: IconButton(

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/screens/login.dart';
 import 'package:wellguard_ai/screens/onboarding.dart';
 import 'package:wellguard_ai/screens/home.dart';
-import 'package:wellguard_ai/screens/sos.dart';
+import 'package:wellguard_ai/screens/greivance.dart';
 import 'package:wellguard_ai/screens/emergency_sos.dart';
 import 'package:wellguard_ai/screens/location_entry_page.dart';
 import 'package:wellguard_ai/screens/map_page.dart';
@@ -73,7 +73,7 @@ class _MyAppState extends State<MyApp> {
           return OnboardingScreen(userId: userId);
         },
         '/home': (context) => const HomeScreen(),
-        '/sos': (context) => const SOSScreen(),
+        '/greivance' : (context) => const GrievancePage(),
         '/emergency_sos': (context) => const EmergencySOSScreen(),
         '/location_entry': (context) => const LocationEntryPage(),
         '/map': (context) => const MapPage(),

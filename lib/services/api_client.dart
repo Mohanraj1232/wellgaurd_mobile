@@ -120,6 +120,8 @@ class ApiClient {
   Future<ApiResponse<SOSResponse>> triggerSOS({
     required int userId,
     required String routeId,
+    required double latitude,
+    required double longitude,
     String message = 'Emergency! I need help immediately!',
   }) async {
     try {
@@ -129,6 +131,11 @@ class ApiClient {
           'userId': userId,
           'routeId': routeId,
           'message': message,
+          'currentLocation': {
+            'latitude': latitude,
+            'longitude': longitude,
+            'timestamp': DateTime.now().toUtc().toIso8601String(),
+          },
         },
       );
 

@@ -186,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: AppColors.primary,
           elevation: 0,
           title: const Text(
-            'WellGaurd AI',
+            'GrievX',
             style: TextStyle(
               color: AppColors.textWhite,
               fontWeight: FontWeight.bold,
@@ -215,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       radius: 30,
                       backgroundColor: AppColors.secondary,
                       child: const Text(
-                        'WG',
+                        'GX',
                         style: TextStyle(
                           color: AppColors.textWhite,
                           fontWeight: FontWeight.bold,
@@ -225,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'WellGaurd AI',
+                      'GrievX',
                       style: TextStyle(
                         color: AppColors.textWhite,
                         fontWeight: FontWeight.bold,
@@ -236,17 +236,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.warning),
-                title: const Text('SOS'),
-                iconColor: AppColors.accentWarning,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).pushNamed('/sos');
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.emergency),
-                title: const Text('Emergency SOS'),
+                title: const Text('Emergency SOS', style: TextStyle(color: AppColors.textWhite)),
                 iconColor: AppColors.accentDanger,
                 onTap: () {
                   Navigator.pop(context);
@@ -255,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.contacts),
-                title: const Text('Emergency Contacts'),
+                title: const Text('Emergency Contacts' ,style : TextStyle(color: AppColors.textWhite)),
                 iconColor: AppColors.accentDanger,
                 onTap: () {
                   Navigator.pop(context);
@@ -271,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
+                title: const Text('Logout', style: TextStyle(color: AppColors.textWhite)),
                 iconColor: AppColors.accentDanger,
                 onTap: () {
                   Navigator.pop(context);
@@ -416,6 +407,70 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
+                      //Greivance button
+                      Card(
+                        color: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 4,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).pushNamed('/greivance');
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.navigation,
+                                    color: AppColors.textWhite,
+                                    size: 32,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Raise New Grievance',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textWhite,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Raise the grievanse and solve your problem',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: AppColors.textWhite,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
                       
                       // Quick Actions Section
                       const Text(
@@ -429,14 +484,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Expanded(
-                            child: _buildQuickAction(
-                              icon: Icons.warning_amber,
-                              label: 'SOS',
-                              color: AppColors.accentWarning,
-                              onTap: () => Navigator.of(context).pushNamed('/sos'),
-                            ),
-                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _buildQuickAction(
@@ -465,43 +512,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // Safety Tips Card
-                      Card(
-                        color: AppColors.bgCard,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: AppColors.borderLight),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.lightbulb_outline,
-                                    color: AppColors.accentWarning,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Safety Tips',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textMain,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              _buildSafetyTip('Share your live location with trusted contacts'),
-                              _buildSafetyTip('Set realistic time limits for your journeys'),
-                              _buildSafetyTip('Keep your phone charged before traveling'),
-                            ],
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
