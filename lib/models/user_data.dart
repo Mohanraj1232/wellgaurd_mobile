@@ -27,18 +27,23 @@ class UserData {
 @JsonSerializable()
 class EmergencyContact {
   final String name;
-  final String whatsappNumber;
+  final String? whatsappNumber;
   @JsonKey(name: 'phoneNumber')
-  final String smsNumber;
+  final String? smsNumber;
 
   EmergencyContact({
     required this.name,
-    required this.whatsappNumber,
-    required this.smsNumber,
+    this.whatsappNumber,
+    this.smsNumber,
   });
 
-  factory EmergencyContact.fromJson(Map<String, dynamic> json) =>
-      _$EmergencyContactFromJson(json);
+  factory EmergencyContact.fromJson(Map<String, dynamic> json) {
+    return EmergencyContact(
+      name: json['name'] as String,
+      whatsappNumber: json['whatsappNumber']?.toString(),
+      smsNumber: json['phoneNumber']?.toString() ?? json['smsNumber']?.toString(),
+    );
+  }
 
   Map<String, dynamic> toJson() => _$EmergencyContactToJson(this);
 }

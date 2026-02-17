@@ -5,6 +5,8 @@ import 'package:wellguard_ai/screens/login.dart';
 import 'package:wellguard_ai/screens/onboarding.dart';
 import 'package:wellguard_ai/screens/home.dart';
 import 'package:wellguard_ai/screens/greivance.dart';
+import 'package:wellguard_ai/screens/add_grievance.dart';
+import 'package:wellguard_ai/screens/view_grievances.dart';
 import 'package:wellguard_ai/screens/emergency_sos.dart';
 import 'package:wellguard_ai/screens/location_entry_page.dart';
 import 'package:wellguard_ai/screens/map_page.dart';
@@ -88,7 +90,9 @@ class _MyAppState extends State<MyApp> {
           return OnboardingScreen(userId: userId, token: token);
         },
         '/home': (context) => const HomeScreen(),
-        '/greivance' : (context) => const GrievancePage(),
+        '/greivance': (context) => const GrievancePage(),
+        '/add_grievance': (context) => const AddGrievanceScreen(),
+        '/view_grievances': (context) => const ViewGrievancesScreen(),
         '/emergency_sos': (context) => const EmergencySOSScreen(),
         '/location_entry': (context) => const LocationEntryPage(),
         '/map': (context) => const MapPage(),

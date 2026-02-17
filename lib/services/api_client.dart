@@ -4,6 +4,7 @@ import 'package:wellguard_ai/models/login_request.dart';
 import 'package:wellguard_ai/models/onboarding_request.dart';
 import 'package:wellguard_ai/models/user_data.dart';
 import 'package:wellguard_ai/models/route_data.dart';
+import 'package:wellguard_ai/models/grievance_model.dart';
 
 class ApiClient {
   final Dio _dio;
@@ -165,6 +166,92 @@ class ApiClient {
       return ApiResponse<dynamic>.fromJson(
         response.data,
         (json) => json,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ============= DEPARTMENT ENDPOINTS =============
+
+  // Get departments dropdown list
+  Future<ApiResponse<List<DepartmentDropdown>>> getDepartmentsDropdown() async {
+    try {
+      final response = await _dio.get('/api/department/drop-down');
+
+      return ApiResponse<List<DepartmentDropdown>>.fromJson(
+        response.data,
+        (json) => (json as List)
+            .map((item) =>
+                DepartmentDropdown.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ============= GRIEVANCE ENDPOINTS =============
+
+  // Add grievance
+  Future<ApiResponse<Grievance>> addGrievance({
+    required String title,
+    required String description,
+    required String departmentId,
+    String? imagePath,
+  }) async {
+    try {
+      FormData formData = FormData.fromMap({
+        'title': title,
+        'description': description,
+        'departmentId': departmentId,
+      });
+
+      if (imagePath != null) {
+        formData.files.add(MapEntry(
+          'image',
+          await MultipartFile.fromFile(imagePath),
+        ));
+      }
+
+      final response = await _dio.post(
+        '/api/grevance/add-grevance',
+        data: formData,
+      );
+
+      return ApiResponse<Grievance>.fromJson(
+        response.data,
+        (json) => Grievance.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Get all grievances for user
+  Future<ApiResponse<List<Grievance>>> getAllGrievances() async {
+    try {
+      final response = await _dio.get('/api/grevance/get-all-grevance');
+
+      return ApiResponse<List<Grievance>>.fromJson(
+        response.data,
+        (json) => (json as List)
+            .map((item) => Grievance.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Get grievance by ID
+  Future<ApiResponse<Grievance>> getGrievanceById(String id) async {
+    try {
+      final response = await _dio.get('/api/grevance/get-grevance/$id');
+
+      return ApiResponse<Grievance>.fromJson(
+        response.data,
+        (json) => Grievance.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
       rethrow;
