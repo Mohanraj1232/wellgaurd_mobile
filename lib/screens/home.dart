@@ -309,12 +309,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               AppSpacing.vGapMD,
-              _buildJourneyCard()
+              _buildGrievanceCard()
                   .animate()
                   .fadeIn(duration: 500.ms, delay: 200.ms)
                   .slideY(begin: 0.2, end: 0),
               AppSpacing.vGapLG,
-              _buildGrievanceCard()
+              _buildJourneyCard()
                   .animate()
                   .fadeIn(duration: 500.ms, delay: 300.ms)
                   .slideY(begin: 0.2, end: 0),
@@ -402,100 +402,67 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         HapticFeedback.mediumImpact();
         Navigator.of(context).pushNamed('/location_entry');
       },
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: AppSpacing.radiusXL,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary.withValues(alpha: 0.3),
+                AppColors.primary.withValues(alpha: 0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // Background pattern
-            Positioned(
-              right: -20,
-              top: -20,
-              child: Icon(
-                Iconsax.routing_2,
-                size: 150,
-                color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+          ),
+          padding: AppSpacing.allLG,
+          child: Row(
+            children: [
+              Container(
+                padding: AppSpacing.allMD,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                ),
+                child: const Icon(
+                  Iconsax.routing,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
               ),
-            ),
-            // Content
-            Padding(
-              padding: AppSpacing.allXL,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: AppSpacing.allMD,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                        ),
-                        child: const Icon(
-                          Iconsax.routing,
-                          color: AppColors.textWhite,
-                          size: 28,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Iconsax.shield_tick, color: AppColors.textWhite, size: 14),
-                            AppSpacing.hGapXS,
-                            Text(
-                              'Protected',
-                              style: AppTypography.caption.copyWith(color: AppColors.textWhite),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.vGapLG,
-                  Text(
-                    'Start New Journey',
-                    style: AppTypography.headlineMedium.copyWith(
-                      color: AppColors.textWhite,
-                      fontWeight: FontWeight.bold,
+              AppSpacing.hGapMD,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Start New Journey',
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  AppSpacing.vGapXS,
-                  Text(
-                    'Track your trip with real-time safety monitoring',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: Colors.white.withValues(alpha: 0.8),
+                    AppSpacing.vGapXS,
+                    Text(
+                      'Track your trip with real-time safety monitoring',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
                     ),
-                  ),
-                  AppSpacing.vGapLG,
-                  Row(
-                    children: [
-                      _buildJourneyFeature(Iconsax.location, 'Live Tracking'),
-                      AppSpacing.hGapMD,
-                      _buildJourneyFeature(Iconsax.security_safe, 'Safe Routes'),
-                      AppSpacing.hGapMD,
-                      _buildJourneyFeature(Iconsax.call, 'SOS Alert'),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              Container(
+                padding: AppSpacing.allSM,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                ),
+                child: const Icon(
+                  Iconsax.arrow_right_3,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -521,67 +488,106 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         HapticFeedback.mediumImpact();
         Navigator.of(context).pushNamed('/greivance');
       },
-      child: GlassCard(
-        padding: EdgeInsets.zero,
-        borderRadius: AppSpacing.radiusXL,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.secondary.withValues(alpha: 0.3),
-                AppColors.secondary.withValues(alpha: 0.1),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-          ),
-          padding: AppSpacing.allLG,
-          child: Row(
-            children: [
-              Container(
-                padding: AppSpacing.allMD,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                ),
-                child: const Icon(
-                  Iconsax.message_question,
-                  color: AppColors.secondary,
-                  size: 28,
-                ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Icon(
+                Iconsax.message_question,
+                size: 150,
+                color: Colors.white.withValues(alpha: 0.1),
               ),
-              AppSpacing.hGapMD,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Raise Grievance',
-                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            ),
+            // Content
+            Padding(
+              padding: AppSpacing.allXL,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: AppSpacing.allMD,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                        ),
+                        child: const Icon(
+                          Iconsax.message_question,
+                          color: AppColors.textWhite,
+                          size: 28,
+                        ),
+                      ),
+                      const Spacer(),
+                      Flexible(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Iconsax.shield_tick, color: AppColors.textWhite, size: 14),
+                              AppSpacing.hGapXS,
+                              Flexible(
+                                child: Text(
+                                  'Report & Resolve',
+                                  style: AppTypography.caption.copyWith(color: AppColors.textWhite),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  AppSpacing.vGapLG,
+                  Text(
+                    'Raise Grievance',
+                    style: AppTypography.headlineMedium.copyWith(
+                      color: AppColors.textWhite,
+                      fontWeight: FontWeight.bold,
                     ),
-                    AppSpacing.vGapXS,
-                    Text(
-                      'Report an issue or request assistance',
-                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
+                  AppSpacing.vGapXS,
+                  Text(
+                    'Report an issue or request assistance',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
-                  ],
-                ),
+                  ),
+                  AppSpacing.vGapLG,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: [
+                      _buildJourneyFeature(Iconsax.message_text, 'File Report'),
+                      _buildJourneyFeature(Iconsax.timer_1, 'Quick Response'),
+                      _buildJourneyFeature(Iconsax.tick_circle, 'Track Status'),
+                    ],
+                  ),
+                ],
               ),
-              Container(
-                padding: AppSpacing.allSM,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                ),
-                child: const Icon(
-                  Iconsax.arrow_right_3,
-                  color: AppColors.secondary,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -596,55 +602,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           icon: Iconsax.flash_1,
         ),
         AppSpacing.vGapMD,
-        AnimationLimiter(
-          child: Row(
-            children: AnimationConfiguration.toStaggeredList(
-              duration: const Duration(milliseconds: 375),
-              childAnimationBuilder: (widget) => SlideAnimation(
-                horizontalOffset: 50.0,
-                child: FadeInAnimation(child: widget),
-              ),
-              children: [
-                Expanded(
-                  child: _buildQuickActionCard(
-                    icon: Iconsax.call,
-                    label: 'Emergency',
-                    subtitle: 'Quick SOS',
-                    color: AppColors.accentDanger,
-                    onTap: () => Navigator.of(context).pushNamed('/emergency_sos'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                Expanded(
-                  child: _buildQuickActionCard(
-                    icon: Iconsax.activity,
-                    label: 'News Feed',
-                    subtitle: 'Latest updates',
-                    color: AppColors.accentDanger,
-                    onTap: () => Navigator.of(context).pushNamed('/news_feed'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                Expanded(
-                  child: _buildQuickActionCard(
-                    icon: Iconsax.people,
-                    label: 'Contacts',
-                    subtitle: '${_emergencyContacts?.length ?? 0} saved',
-                    color: AppColors.secondary,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => EmergencyContactsScreen(
-                          contacts: _emergencyContacts ?? [],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.95,
+          children: [
+            _buildQuickActionCard(
+              icon: Iconsax.call,
+              label: 'Emergency',
+              subtitle: 'Quick SOS',
+              color: AppColors.accentDanger,
+              onTap: () => Navigator.of(context).pushNamed('/emergency_sos'),
             ),
-          ),
+            _buildQuickActionCard(
+              icon: Iconsax.activity,
+              label: 'News Feed',
+              subtitle: 'Latest updates',
+              color: AppColors.accentInfo,
+              onTap: () => Navigator.of(context).pushNamed('/news_feed'),
+            ),
+            _buildQuickActionCard(
+              icon: Iconsax.people,
+              label: 'Contacts',
+              subtitle: '${_emergencyContacts?.length ?? 0} saved',
+              color: AppColors.secondary,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => EmergencyContactsScreen(
+                    contacts: _emergencyContacts ?? [],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -663,9 +656,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         onTap();
       },
       child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
         borderRadius: AppSpacing.radiusLG,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
@@ -673,8 +667,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    color.withValues(alpha: 0.3),
-                    color.withValues(alpha: 0.1),
+                    color.withValues(alpha: 0.25),
+                    color.withValues(alpha: 0.08),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -684,9 +678,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 8),
             Text(
               label,
-              style: AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w600),
+              style: AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 12),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
             Text(
@@ -694,6 +689,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               style: AppTypography.caption.copyWith(color: AppColors.textMuted, fontSize: 10),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
+              textAlign: TextAlign.center,
             ),
           ],
         ),

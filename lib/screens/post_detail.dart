@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:intl/intl.dart';
@@ -80,53 +82,7 @@ class PostDetailScreen extends StatelessWidget {
                         if (post.image != null && post.image!.isNotEmpty) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                            child: Image.network(
-                              post.image!,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  width: double.infinity,
-                                  height: 220,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.bgHover,
-                                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                                  ),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                      color: AppColors.primary,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                width: double.infinity,
-                                height: 150,
-                                decoration: BoxDecoration(
-                                  color: AppColors.bgHover,
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                                ),
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Iconsax.gallery_slash, color: AppColors.textMuted, size: 40),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Image not available',
-                                        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                            child: _buildPostImage(post.image!),
                           )
                               .animate()
                               .fadeIn(duration: 500.ms, delay: 300.ms)
@@ -361,6 +317,65 @@ class PostDetailScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPostImage(String imageData, {double? height, BoxFit fit = BoxFit.cover}) {
+    if (imageData.startsWith('data:image')) {
+      try {
+        final base64Str = imageData.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              color: AppColors.bgHover,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+            ),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Iconsax.gallery_slash, color: AppColors.textMuted, size: 40),
+                  SizedBox(height: 8),
+                  Text('Image not available', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        );
+      } catch (e) {
+        return const SizedBox.shrink();
+      }
+    }
+    return Image.network(
+      imageData,
+      width: double.infinity,
+      height: height,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => Container(
+        width: double.infinity,
+        height: 150,
+        decoration: BoxDecoration(
+          color: AppColors.bgHover,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Iconsax.gallery_slash, color: AppColors.textMuted, size: 40),
+              SizedBox(height: 8),
+              Text('Image not available', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -200,7 +200,7 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
       });
 
       final response = await dio.post(
-        'http://10.0.2.2:8000/predict',
+        'https://foster-postcentral-al.ngrok-free.dev/predict',
         data: formData,
         options: Options(
           sendTimeout: const Duration(seconds: 30),

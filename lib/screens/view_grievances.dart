@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
@@ -365,9 +367,86 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
     );
   }
 
+  bool _isBase64Image(String? imageData) {
+    return imageData != null && imageData.startsWith('data:image');
+  }
+
+  Uint8List _decodeBase64Image(String dataUri) {
+    final base64Str = dataUri.split(',').last;
+    return base64Decode(base64Str);
+  }
+
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) return '';
-    return '${AppConstants.fullApiUrl}/$imagePath';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    String normalizedPath = imagePath.replaceAll('\\', '/');
+    if (normalizedPath.startsWith('/')) {
+      normalizedPath = normalizedPath.substring(1);
+    }
+    return '${AppConstants.fullApiUrl}/$normalizedPath';
+  }
+
+  Widget _buildGrievanceImage(String? imageData, {double? height, BoxFit fit = BoxFit.cover}) {
+    if (imageData == null || imageData.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_isBase64Image(imageData)) {
+      try {
+        final bytes = _decodeBase64Image(imageData);
+        return Image.memory(
+          bytes,
+          height: height,
+          width: double.infinity,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: height,
+              color: AppColors.bgMain,
+              child: const Center(
+                child: Icon(Icons.broken_image, size: 40, color: AppColors.textMuted),
+              ),
+            );
+          },
+        );
+      } catch (e) {
+        return Container(
+          height: height,
+          color: AppColors.bgMain,
+          child: const Center(
+            child: Icon(Icons.broken_image, size: 40, color: AppColors.textMuted),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      _getImageUrl(imageData),
+      height: height,
+      width: double.infinity,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: height,
+          color: AppColors.bgMain,
+          child: const Center(
+            child: Icon(Icons.broken_image, size: 40, color: AppColors.textMuted),
+          ),
+        );
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          color: AppColors.bgMain,
+          child: const Center(
+            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+          ),
+        );
+      },
+    );
   }
 
   void _navigateToDetails(Grievance grievance) {
@@ -397,38 +476,11 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image Section
-            if (grievance.image != null)
+            if (grievance.image != null && grievance.image!.isNotEmpty)
               SizedBox(
                 height: 150,
                 width: double.infinity,
-                child: Image.network(
-                  _getImageUrl(grievance.image),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: AppColors.bgMain,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 40,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: AppColors.bgMain,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                child: _buildGrievanceImage(grievance.image, height: 150),
               ),
             Padding(
               padding: const EdgeInsets.all(16),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -353,13 +355,7 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
               AppSpacing.vGapMD,
               ClipRRect(
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                child: Image.network(
-                  post.image!,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                ),
+                child: _buildPostImage(post.image!, height: 180),
               ),
             ],
 
@@ -397,6 +393,31 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPostImage(String imageData, {double? height, BoxFit fit = BoxFit.cover}) {
+    if (imageData.startsWith('data:image')) {
+      try {
+        final base64Str = imageData.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        );
+      } catch (e) {
+        return const SizedBox.shrink();
+      }
+    }
+    return Image.network(
+      imageData,
+      width: double.infinity,
+      height: height,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
     );
   }
 }

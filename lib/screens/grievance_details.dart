@@ -1,13 +1,73 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/models/grievance_model.dart';
 import 'package:wellguard_ai/constants.dart';
 
-class GrievanceDetailsScreen extends StatelessWidget {
+class GrievanceDetailsScreen extends StatefulWidget {
   final Grievance grievance;
 
   const GrievanceDetailsScreen({super.key, required this.grievance});
+
+  @override
+  State<GrievanceDetailsScreen> createState() => _GrievanceDetailsScreenState();
+}
+
+class _GrievanceDetailsScreenState extends State<GrievanceDetailsScreen> {
+  late final Grievance grievance;
+  AudioPlayer? _audioPlayer;
+  bool _audioLoading = false;
+  String? _audioError;
+
+  @override
+  void initState() {
+    super.initState();
+    grievance = widget.grievance;
+    if (grievance.audio != null && grievance.audio!.isNotEmpty) {
+      _initAudio();
+    }
+  }
+
+  String _getAudioUrl(String audioPath) {
+    if (audioPath.startsWith('http://') || audioPath.startsWith('https://')) {
+      return audioPath;
+    }
+    String normalizedPath = audioPath.replaceAll('\\', '/');
+    if (normalizedPath.startsWith('/')) {
+      normalizedPath = normalizedPath.substring(1);
+    }
+    return '${AppConstants.fullApiUrl}/$normalizedPath';
+  }
+
+  Future<void> _initAudio() async {
+    setState(() {
+      _audioLoading = true;
+      _audioError = null;
+    });
+    try {
+      _audioPlayer = AudioPlayer();
+      await _audioPlayer!.setUrl(_getAudioUrl(grievance.audio!));
+    } catch (e) {
+      setState(() => _audioError = 'Failed to load audio');
+    } finally {
+      if (mounted) setState(() => _audioLoading = false);
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer?.dispose();
+    super.dispose();
+  }
 
   Color _getStatusColor(String status) {
     switch (status) {
@@ -48,9 +108,304 @@ class GrievanceDetailsScreen extends StatelessWidget {
     }
   }
 
+  Widget _buildAudioPlayer() {
+    if (grievance.audio == null || grievance.audio!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        const Text(
+          'Audio Recording',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textMuted,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: _audioLoading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : _audioError != null
+                  ? Row(
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: AppColors.accentDanger, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _audioError!,
+                            style: const TextStyle(
+                              color: AppColors.accentDanger,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _initAudio,
+                          child: const Text('Retry',
+                              style: TextStyle(color: AppColors.primary)),
+                        ),
+                      ],
+                    )
+                  : StreamBuilder<PlayerState>(
+                      stream: _audioPlayer!.playerStateStream,
+                      builder: (context, snapshot) {
+                        final state = snapshot.data;
+                        final isPlaying = state?.playing ?? false;
+                        final processingState =
+                            state?.processingState ?? ProcessingState.idle;
+                        final isCompleted =
+                            processingState == ProcessingState.completed;
+
+                        return Row(
+                          children: [
+                            // Play / Pause button
+                            GestureDetector(
+                              onTap: () async {
+                                if (isCompleted) {
+                                  await _audioPlayer!.seek(Duration.zero);
+                                  await _audioPlayer!.play();
+                                } else if (isPlaying) {
+                                  await _audioPlayer!.pause();
+                                } else {
+                                  await _audioPlayer!.play();
+                                }
+                              },
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.primary,
+                                ),
+                                child: Icon(
+                                  isCompleted
+                                      ? Icons.replay
+                                      : isPlaying
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                                  color: AppColors.textWhite,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Seek bar + time
+                            Expanded(
+                              child: StreamBuilder<Duration>(
+                                stream: _audioPlayer!.positionStream,
+                                builder: (context, posSnapshot) {
+                                  final position =
+                                      posSnapshot.data ?? Duration.zero;
+                                  final duration =
+                                      _audioPlayer!.duration ?? Duration.zero;
+                                  final progress = duration.inMilliseconds > 0
+                                      ? (position.inMilliseconds /
+                                              duration.inMilliseconds)
+                                          .clamp(0.0, 1.0)
+                                      : 0.0;
+
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          trackHeight: 3,
+                                          thumbShape:
+                                              const RoundSliderThumbShape(
+                                                  enabledThumbRadius: 7),
+                                          overlayShape:
+                                              const RoundSliderOverlayShape(
+                                                  overlayRadius: 14),
+                                          activeTrackColor: AppColors.primary,
+                                          inactiveTrackColor:
+                                              AppColors.borderLight,
+                                          thumbColor: AppColors.primary,
+                                          overlayColor: AppColors.primary
+                                              .withValues(alpha: 0.2),
+                                        ),
+                                        child: Slider(
+                                          value: progress,
+                                          onChanged: (value) {
+                                            final seek = Duration(
+                                              milliseconds: (value *
+                                                      duration.inMilliseconds)
+                                                  .round(),
+                                            );
+                                            _audioPlayer!.seek(seek);
+                                          },
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              _formatDuration(position),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMuted,
+                                              ),
+                                            ),
+                                            Text(
+                                              _formatDuration(duration),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  bool _isBase64Image(String? imageData) {
+    return imageData != null && imageData.startsWith('data:image');
+  }
+
+  Uint8List _decodeBase64Image(String dataUri) {
+    final base64Str = dataUri.split(',').last;
+    return base64Decode(base64Str);
+  }
+
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) return '';
-    return '${AppConstants.fullApiUrl}/$imagePath';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    String normalizedPath = imagePath.replaceAll('\\', '/');
+    if (normalizedPath.startsWith('/')) {
+      normalizedPath = normalizedPath.substring(1);
+    }
+    return '${AppConstants.fullApiUrl}/$normalizedPath';
+  }
+
+  Widget _buildGrievanceImage(String? imageData, {double? height, BoxFit fit = BoxFit.cover}) {
+    if (imageData == null || imageData.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_isBase64Image(imageData)) {
+      try {
+        final bytes = _decodeBase64Image(imageData);
+        return Image.memory(
+          bytes,
+          height: height,
+          width: double.infinity,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.broken_image, size: 48, color: AppColors.textMuted),
+                    SizedBox(height: 8),
+                    Text('Failed to load image', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      } catch (e) {
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image, size: 48, color: AppColors.textMuted),
+                SizedBox(height: 8),
+                Text('Failed to load image', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      _getImageUrl(imageData),
+      height: height,
+      width: double.infinity,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image, size: 48, color: AppColors.textMuted),
+                SizedBox(height: 8),
+                Text('Failed to load image', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+              ],
+            ),
+          ),
+        );
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -190,6 +545,9 @@ class GrievanceDetailsScreen extends StatelessWidget {
                     ),
                   ),
 
+                  // Audio Section
+                  _buildAudioPlayer(),
+
                   // Image Section (if no sliver image shown)
                   if (grievance.image != null) ...[
                     const SizedBox(height: 20),
@@ -206,56 +564,7 @@ class GrievanceDetailsScreen extends StatelessWidget {
                       onTap: () => _showFullImage(context),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          _getImageUrl(grievance.image),
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: AppColors.bgCard,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.broken_image,
-                                      size: 48,
-                                      color: AppColors.textMuted,
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Failed to load image',
-                                      style: TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: AppColors.bgCard,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                        child: _buildGrievanceImage(grievance.image, height: 200),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -485,32 +794,7 @@ class GrievanceDetailsScreen extends StatelessWidget {
           ),
           body: InteractiveViewer(
             child: Center(
-              child: Image.network(
-                _getImageUrl(grievance.image),
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.broken_image,
-                          size: 64,
-                          color: Colors.white54,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Failed to load image',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              child: _buildGrievanceImage(grievance.image, fit: BoxFit.contain),
             ),
           ),
         ),

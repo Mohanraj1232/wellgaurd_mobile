@@ -44,6 +44,7 @@ class Grievance {
   final String title;
   final String description;
   final String? image;
+  final String? audio;
   final String status;
   final String? resolution;
   final DateTime? resolvedAt;
@@ -57,6 +58,7 @@ class Grievance {
     required this.title,
     required this.description,
     this.image,
+    this.audio,
     this.status = 'submitted',
     this.resolution,
     this.resolvedAt,
@@ -74,6 +76,7 @@ class Grievance {
       title: json['title'] as String,
       description: json['description'] as String,
       image: json['image'] as String?,
+      audio: json['audio'] as String?,
       status: json['status'] as String? ?? 'submitted',
       resolution: json['resolution'] as String?,
       resolvedAt: json['resolvedAt'] != null
