@@ -180,12 +180,20 @@ class _EmergencySOSScreenState extends State<EmergencySOSScreen> with TickerProv
                   
                   // Main content
                   Expanded(
-                    child: Center(
-                      child: _isLoading
-                          ? _buildLoadingState()
-                          : _errorMessage != null
-                              ? _buildErrorState()
-                              : _buildSuccessState(),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height * 0.65,
+                        ),
+                        child: Center(
+                          child: _isLoading
+                              ? _buildLoadingState()
+                              : _errorMessage != null
+                                  ? _buildErrorState()
+                                  : _buildSuccessState(),
+                        ),
+                      ),
                     ),
                   ),
                 ],

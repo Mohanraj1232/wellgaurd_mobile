@@ -5,6 +5,7 @@ import 'package:wellguard_ai/models/onboarding_request.dart';
 import 'package:wellguard_ai/models/user_data.dart';
 import 'package:wellguard_ai/models/route_data.dart';
 import 'package:wellguard_ai/models/grievance_model.dart';
+import 'package:wellguard_ai/models/post_model.dart';
 
 class ApiClient {
   final Dio _dio;
@@ -261,6 +262,24 @@ class ApiClient {
       return ApiResponse<Grievance>.fromJson(
         response.data,
         (json) => Grievance.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ============= POSTS ENDPOINTS =============
+
+  // Get active posts for news feed
+  Future<ApiResponse<List<Post>>> getActivePosts() async {
+    try {
+      final response = await _dio.get('/api/posts/active-posts');
+
+      return ApiResponse<List<Post>>.fromJson(
+        response.data,
+        (json) => (json as List)
+            .map((item) => Post.fromJson(item as Map<String, dynamic>))
+            .toList(),
       );
     } catch (e) {
       rethrow;

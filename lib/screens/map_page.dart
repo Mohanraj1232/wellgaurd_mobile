@@ -651,29 +651,20 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                     },
                   ),
 
-                  // Top Info Card
+                  // Top Info Card + Status Indicator
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 10,
                     left: 16,
                     right: 16,
-                    child: _buildInfoCard(),
-                  ),
-
-                  // Status Indicator
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 10,
-                    right: 16,
-                    child: _buildStatusIndicator(),
-                  ),
-
-                  // Road Info Toggle
-                  if (_showRoadInfo)
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 140,
-                      left: 16,
-                      right: 16,
-                      child: _buildRoadInfoCard(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildInfoCard(),
+                        const SizedBox(height: 8),
+                        if (_showRoadInfo) _buildRoadInfoCard(),
+                      ],
                     ),
+                  ),
 
                   // Bottom Controls
                   Positioned(

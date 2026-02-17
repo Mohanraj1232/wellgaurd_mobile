@@ -11,6 +11,7 @@ import 'package:wellguard_ai/screens/view_grievances.dart';
 import 'package:wellguard_ai/screens/emergency_sos.dart';
 import 'package:wellguard_ai/screens/location_entry_page.dart';
 import 'package:wellguard_ai/screens/map_page.dart';
+import 'package:wellguard_ai/screens/news_feed.dart';
 import 'package:wellguard_ai/providers/journey_provider.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/theme/app_theme.dart';
@@ -147,6 +148,7 @@ class _MyAppState extends State<MyApp> {
         '/emergency_sos': (context) => const EmergencySOSScreen(),
         '/location_entry': (context) => const LocationEntryPage(),
         '/map': (context) => const MapPage(),
+        '/news_feed': (context) => const NewsFeedScreen(),
       },
     );
   }

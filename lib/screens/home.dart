@@ -248,7 +248,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             // Main content
             SafeArea(
               child: _isLoadingData
-                  ? _buildLoadingState()
+                  ? SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: _buildLoadingState(),
+                    )
                   : _buildMainContent(),
             ),
             
@@ -611,7 +614,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onTap: () => Navigator.of(context).pushNamed('/emergency_sos'),
                   ),
                 ),
-                AppSpacing.hGapMD,
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: _buildQuickActionCard(
+                    icon: Iconsax.activity,
+                    label: 'News Feed',
+                    subtitle: 'Latest updates',
+                    color: AppColors.accentDanger,
+                    onTap: () => Navigator.of(context).pushNamed('/news_feed'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
                 Expanded(
                   child: _buildQuickActionCard(
                     icon: Iconsax.people,
@@ -648,12 +663,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         onTap();
       },
       child: GlassCard(
-        padding: AppSpacing.allMD,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         borderRadius: AppSpacing.radiusLG,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: AppSpacing.allMD,
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -663,14 +679,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 22),
             ),
-            AppSpacing.vGapMD,
-            Text(label, style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
-            AppSpacing.vGapXS,
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            const SizedBox(height: 2),
             Text(
               subtitle,
-              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted, fontSize: 10),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),
@@ -874,22 +897,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         );
                       },
                     ),
+                    
                     _buildDrawerItem(
-                      icon: Iconsax.routing,
-                      label: 'Journey History',
+                      icon: Iconsax.document_text,
+                      label: 'News Feed',
                       onTap: () {
                         Navigator.pop(context);
-                        // TODO: Journey history
+                        Navigator.of(context).pushNamed('/news_feed');
                       },
                     ),
-                    _buildDrawerItem(
-                      icon: Iconsax.setting_2,
-                      label: 'Settings',
-                      onTap: () {
-                        Navigator.pop(context);
-                        // TODO: Settings
-                      },
-                    ),
+                    
                   ],
                 ),
               ),
