@@ -30,6 +30,11 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
   bool _isSubmitting = false;
   String? _error;
 
+  // ML Analysis state
+  bool _isAnalysing = false;
+  bool _analysisComplete = false;
+  String? _analysisError;
+
   // Audio recording state
   String? _audioPath;
   bool _isRecording = false;
@@ -155,12 +160,124 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
+          _analysisComplete = false;
+          _analysisError = null;
+          // Clear previously auto-filled fields
+          _titleController.clear();
+          _descriptionController.clear();
+          _selectedDepartment = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _analyseImage() async {
+    if (_selectedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload an image first')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isAnalysing = true;
+      _analysisError = null;
+    });
+
+    try {
+      final dio = Dio();
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          _selectedImage!.path,
+          filename: _selectedImage!.path.split(Platform.pathSeparator).last,
+        ),
+      });
+
+      final response = await dio.post(
+        'http://10.0.2.2:8000/predict',
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      final data = response.data;
+
+      if (data['success'] == true) {
+        // Auto-fill form fields
+        _titleController.text = data['title'] ?? '';
+        _descriptionController.text = data['description'] ?? '';
+
+        // Match department from ML category to existing dropdown values
+        final mlCategory = (data['category'] ?? '').toString().toLowerCase();
+        DepartmentDropdown? matchedDept;
+        for (final dept in _departments) {
+          if (dept.name.toLowerCase().contains(mlCategory) ||
+              mlCategory.contains(dept.name.toLowerCase())) {
+            matchedDept = dept;
+            break;
+          }
+        }
+
+        setState(() {
+          _selectedDepartment = matchedDept;
+          _analysisComplete = true;
+          _isAnalysing = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image analysed successfully! Fields auto-filled.'),
+              backgroundColor: AppColors.secondary,
+            ),
+          );
+        }
+      } else {
+        // Road is clean or no damage found
+        setState(() {
+          _isAnalysing = false;
+          _analysisError = data['description'] ?? 'No issue detected in the image.';
+          _selectedImage = null;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(data['description'] ?? 'No issue detected. Please upload a different photo.'),
+              backgroundColor: AppColors.accentDanger,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } on DioException catch (e) {
+      setState(() {
+        _isAnalysing = false;
+        _analysisError = _getErrorMessage(e);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Analysis failed: ${_getErrorMessage(e)}')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isAnalysing = false;
+        _analysisError = e.toString();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Analysis failed: $e')),
         );
       }
     }
@@ -459,6 +576,245 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Image Upload & Analyse Section
+            const Text(
+              'Upload Road Image',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMain,
+              ),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _isAnalysing ? null : _pickImage,
+              child: Container(
+                height: _selectedImage != null ? 200 : 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _analysisError != null
+                        ? AppColors.accentDanger
+                        : _analysisComplete
+                            ? AppColors.secondary
+                            : AppColors.borderLight,
+                    width: _analysisComplete || _analysisError != null ? 2 : 1,
+                  ),
+                ),
+                child: _selectedImage != null
+                    ? Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              _selectedImage!,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          if (!_isAnalysing)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedImage = null;
+                                    _analysisComplete = false;
+                                    _analysisError = null;
+                                    _titleController.clear();
+                                    _descriptionController.clear();
+                                    _selectedDepartment = null;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.accentDanger,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: AppColors.textWhite,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (_isAnalysing)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black45,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CircularProgressIndicator(color: AppColors.textWhite),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Analysing image...',
+                                      style: TextStyle(
+                                        color: AppColors.textWhite,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 40,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _analysisError != null
+                                ? 'Upload a different image'
+                                : 'Tap to upload road image',
+                            style: TextStyle(
+                              color: _analysisError != null
+                                  ? AppColors.accentDanger
+                                  : AppColors.textMuted,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            if (_analysisError != null && _selectedImage == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _analysisError!,
+                  style: const TextStyle(
+                    color: AppColors.accentDanger,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            // Analyse Button
+            if (_selectedImage != null && !_analysisComplete)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: _isAnalysing
+                        ? null
+                        : const LinearGradient(
+                            colors: [AppColors.primary, AppColors.primaryDark],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                    color: _isAnalysing ? AppColors.bgCard : null,
+                    borderRadius: BorderRadius.circular(12),
+                    border: _isAnalysing
+                        ? Border.all(color: AppColors.primary, width: 1.5)
+                        : null,
+                    boxShadow: _isAnalysing
+                        ? null
+                        : const [
+                            BoxShadow(
+                              color: AppColors.shadowPrimary,
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _isAnalysing ? null : _analyseImage,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isAnalysing) ...[
+                            const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Analysing...',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ] else ...[
+                            const Icon(
+                              Icons.auto_fix_high,
+                              color: AppColors.textWhite,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Analyse Image',
+                              style: TextStyle(
+                                color: AppColors.textWhite,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_analysisComplete)
+              Container(
+                width: double.infinity,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.accentSuccess.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.accentSuccess, width: 1.5),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.accentSuccess,
+                      size: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Analysis Complete',
+                      style: TextStyle(
+                        color: AppColors.accentSuccess,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+
             // Department Dropdown
             const Text(
               'Department',
@@ -470,6 +826,7 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
             ),
             const SizedBox(height: 8),
             Container(
+              key: ValueKey(_selectedDepartment?.id ?? 'no-dept'),
               decoration: BoxDecoration(
                 color: AppColors.bgCard,
                 borderRadius: BorderRadius.circular(12),
@@ -589,88 +946,6 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
                 }
                 return null;
               },
-            ),
-            const SizedBox(height: 20),
-
-            // Image Section
-            const Text(
-              'Attachment (Optional)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMain,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: _selectedImage != null ? 200 : 120,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: _selectedImage != null
-                    ? Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              _selectedImage!,
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedImage = null;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.accentDanger,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: AppColors.textWhite,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 40,
-                            color: AppColors.textMuted,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to add image',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
             ),
             const SizedBox(height: 20),
 
