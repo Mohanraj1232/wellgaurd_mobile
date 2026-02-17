@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellguard_ai/theme/colors.dart';
+import 'package:wellguard_ai/theme/typography.dart';
+import 'package:wellguard_ai/theme/spacing.dart';
 import 'package:wellguard_ai/models/user_data.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/screens/emergency_contacts.dart';
+import 'package:wellguard_ai/widgets/widgets.dart';
 import 'package:dio/dio.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,17 +20,53 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<EmergencyContact>? _emergencyContacts;
   String? _userName;
   String? _userEmail;
   bool _isLoadingData = true;
   int? _userId;
+  
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _loadUserAndContacts();
+  }
+  
+  void _setupAnimations() {
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+  
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+  
+  String _getGreetingIcon() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return '☀️';
+    if (hour < 17) return '🌤️';
+    return '🌙';
   }
 
   Future<void> _loadUserAndContacts() async {
@@ -123,21 +166,31 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
-        title: Text(
-          'Confirm Logout',
-          style: TextStyle(color: AppColors.primary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentDanger.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.logout, color: AppColors.accentDanger, size: 20),
+            ),
+            AppSpacing.hGapMD,
+            Text('Logout', style: AppTypography.titleLarge),
+          ],
         ),
         content: Text(
-          'Are you sure you want to logout? All data will be deleted.',
-          style: TextStyle(color: AppColors.textSecondary),
+          'Are you sure you want to logout? You\'ll need to sign in again to access your account.',
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
+            child: Text('Cancel', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -165,11 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accentDanger,
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             ),
-            child: const Text(
-              'Logout',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('Logout', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -179,415 +234,743 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async {
-        // Prevent back button from navigating away
-        return false;
-      },
+      onWillPop: () async => false,
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: AppColors.bgMain,
-        appBar: AppBar(
-          backgroundColor: AppColors.primary,
-          elevation: 0,
-          title: const Text(
-            'GrievX',
-            style: TextStyle(
-              color: AppColors.textWhite,
-              fontWeight: FontWeight.bold,
+        extendBodyBehindAppBar: true,
+        drawer: _buildModernDrawer(),
+        body: Stack(
+          children: [
+            // Animated gradient background
+            const AnimatedGradientBackground(),
+            
+            // Main content
+            SafeArea(
+              child: _isLoadingData
+                  ? _buildLoadingState()
+                  : _buildMainContent(),
             ),
+            
+            // Floating SOS button
+            Positioned(
+              bottom: AppSpacing.xl,
+              right: AppSpacing.lg,
+              child: _buildFloatingSOS(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildLoadingState() {
+    return Padding(
+      padding: AppSpacing.allLG,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSpacing.vGapXL,
+          const SkeletonBox(width: 200, height: 32),
+          AppSpacing.vGapSM,
+          const SkeletonBox(width: 150, height: 20),
+          AppSpacing.vGapXL,
+          const SkeletonCard(height: 180),
+          AppSpacing.vGapLG,
+          const SkeletonCard(height: 120),
+          AppSpacing.vGapLG,
+          Row(
+            children: [
+              const Expanded(child: SkeletonCard(height: 100)),
+              AppSpacing.hGapMD,
+              const Expanded(child: SkeletonCard(height: 100)),
+            ],
           ),
-          leading: Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: AppColors.textWhite),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMainContent() {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        // Custom App Bar
+        SliverToBoxAdapter(
+          child: _buildHeader(),
+        ),
+        
+        // Content
+        SliverPadding(
+          padding: AppSpacing.horizontalLG,
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              AppSpacing.vGapMD,
+              _buildJourneyCard()
+                  .animate()
+                  .fadeIn(duration: 500.ms, delay: 200.ms)
+                  .slideY(begin: 0.2, end: 0),
+              AppSpacing.vGapLG,
+              _buildGrievanceCard()
+                  .animate()
+                  .fadeIn(duration: 500.ms, delay: 300.ms)
+                  .slideY(begin: 0.2, end: 0),
+              AppSpacing.vGapXL,
+              _buildQuickActionsSection()
+                  .animate()
+                  .fadeIn(duration: 500.ms, delay: 400.ms)
+                  .slideY(begin: 0.2, end: 0),
+              AppSpacing.vGapXL,
+              _buildSafetyTipsSection()
+                  .animate()
+                  .fadeIn(duration: 500.ms, delay: 500.ms)
+                  .slideY(begin: 0.2, end: 0),
+              // Bottom spacing for floating button
+              const SizedBox(height: 100),
+            ]),
           ),
         ),
-        drawer: Drawer(
-          backgroundColor: AppColors.bgCard,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      ],
+    );
+  }
+  
+  Widget _buildHeader() {
+    return Padding(
+      padding: AppSpacing.allLG,
+      child: Row(
+        children: [
+          // Menu button
+          GestureDetector(
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            child: GlassCard(
+              padding: AppSpacing.allSM,
+              borderRadius: AppSpacing.radiusMD,
+              child: const Icon(Iconsax.menu_1, color: AppColors.textMain, size: 24),
+            ),
+          ),
+          AppSpacing.hGapMD,
+          // Greeting & user info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppColors.secondary,
-                      child: const Text(
-                        'GX',
-                        style: TextStyle(
+                    Text(_getGreetingIcon(), style: const TextStyle(fontSize: 18)),
+                    AppSpacing.hGapXS,
+                    Text(
+                      _getGreeting(),
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+                Text(
+                  _userName ?? 'User',
+                  style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            )
+                .animate()
+                .fadeIn(duration: 600.ms)
+                .slideX(begin: -0.2, end: 0),
+          ),
+          // User avatar
+          GestureDetector(
+            onTap: () {
+              // Profile action
+            },
+            child: UserAvatar(
+              name: _userName ?? 'U',
+              size: 48,
+              gradient: AppColors.primaryGradient,
+            ),
+          )
+              .animate()
+              .fadeIn(duration: 600.ms)
+              .scale(begin: const Offset(0.5, 0.5), end: const Offset(1, 1)),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildJourneyCard() {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.of(context).pushNamed('/location_entry');
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Icon(
+                Iconsax.routing_2,
+                size: 150,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: AppSpacing.allXL,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: AppSpacing.allMD,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                        ),
+                        child: const Icon(
+                          Iconsax.routing,
                           color: AppColors.textWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          size: 28,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Iconsax.shield_tick, color: AppColors.textWhite, size: 14),
+                            AppSpacing.hGapXS,
+                            Text(
+                              'Protected',
+                              style: AppTypography.caption.copyWith(color: AppColors.textWhite),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  AppSpacing.vGapLG,
+                  Text(
+                    'Start New Journey',
+                    style: AppTypography.headlineMedium.copyWith(
+                      color: AppColors.textWhite,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  AppSpacing.vGapXS,
+                  Text(
+                    'Track your trip with real-time safety monitoring',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  AppSpacing.vGapLG,
+                  Row(
+                    children: [
+                      _buildJourneyFeature(Iconsax.location, 'Live Tracking'),
+                      AppSpacing.hGapMD,
+                      _buildJourneyFeature(Iconsax.security_safe, 'Safe Routes'),
+                      AppSpacing.hGapMD,
+                      _buildJourneyFeature(Iconsax.call, 'SOS Alert'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildJourneyFeature(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 14),
+        AppSpacing.hGapXS,
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildGrievanceCard() {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.of(context).pushNamed('/greivance');
+      },
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: AppSpacing.radiusXL,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.secondary.withValues(alpha: 0.3),
+                AppColors.secondary.withValues(alpha: 0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+          ),
+          padding: AppSpacing.allLG,
+          child: Row(
+            children: [
+              Container(
+                padding: AppSpacing.allMD,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                ),
+                child: const Icon(
+                  Iconsax.message_question,
+                  color: AppColors.secondary,
+                  size: 28,
+                ),
+              ),
+              AppSpacing.hGapMD,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Raise Grievance',
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    AppSpacing.vGapXS,
+                    Text(
+                      'Report an issue or request assistance',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: AppSpacing.allSM,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                ),
+                child: const Icon(
+                  Iconsax.arrow_right_3,
+                  color: AppColors.secondary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildQuickActionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Quick Actions',
+          icon: Iconsax.flash_1,
+        ),
+        AppSpacing.vGapMD,
+        AnimationLimiter(
+          child: Row(
+            children: AnimationConfiguration.toStaggeredList(
+              duration: const Duration(milliseconds: 375),
+              childAnimationBuilder: (widget) => SlideAnimation(
+                horizontalOffset: 50.0,
+                child: FadeInAnimation(child: widget),
+              ),
+              children: [
+                Expanded(
+                  child: _buildQuickActionCard(
+                    icon: Iconsax.call,
+                    label: 'Emergency',
+                    subtitle: 'Quick SOS',
+                    color: AppColors.accentDanger,
+                    onTap: () => Navigator.of(context).pushNamed('/emergency_sos'),
+                  ),
+                ),
+                AppSpacing.hGapMD,
+                Expanded(
+                  child: _buildQuickActionCard(
+                    icon: Iconsax.people,
+                    label: 'Contacts',
+                    subtitle: '${_emergencyContacts?.length ?? 0} saved',
+                    color: AppColors.secondary,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => EmergencyContactsScreen(
+                          contacts: _emergencyContacts ?? [],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'GrievX',
-                      style: TextStyle(
-                        color: AppColors.textWhite,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: GlassCard(
+        padding: AppSpacing.allMD,
+        borderRadius: AppSpacing.radiusLG,
+        child: Column(
+          children: [
+            Container(
+              padding: AppSpacing.allMD,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.3),
+                    color.withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            AppSpacing.vGapMD,
+            Text(label, style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
+            AppSpacing.vGapXS,
+            Text(
+              subtitle,
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSafetyTipsSection() {
+    final tips = [
+      {'icon': Iconsax.shield_tick, 'text': 'Share your live location with trusted contacts'},
+      {'icon': Iconsax.timer_1, 'text': 'Set journey time limits for extra safety'},
+      {'icon': Iconsax.call, 'text': 'Keep emergency contacts updated'},
+    ];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Safety Tips',
+          icon: Iconsax.lamp_on,
+        ),
+        AppSpacing.vGapMD,
+        GlassCard(
+          padding: AppSpacing.allMD,
+          borderRadius: AppSpacing.radiusLG,
+          child: Column(
+            children: tips.asMap().entries.map((entry) {
+              final tip = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(bottom: entry.key < tips.length - 1 ? AppSpacing.sm : 0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: AppSpacing.allXS,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSuccess.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                      ),
+                      child: Icon(
+                        tip['icon'] as IconData,
+                        color: AppColors.accentSuccess,
+                        size: 16,
+                      ),
+                    ),
+                    AppSpacing.hGapMD,
+                    Expanded(
+                      child: Text(
+                        tip['text'] as String,
+                        style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildFloatingSOS() {
+    return ScaleTransition(
+      scale: _pulseAnimation,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.heavyImpact();
+          Navigator.of(context).pushNamed('/emergency_sos');
+        },
+        onLongPress: () {
+          HapticFeedback.heavyImpact();
+          Navigator.of(context).pushNamed('/emergency_sos');
+        },
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            gradient: AppColors.dangerGradient,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accentDanger.withValues(alpha: 0.5),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Iconsax.call,
+              color: AppColors.textWhite,
+              size: 28,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildModernDrawer() {
+    return Drawer(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1a1a2e),
+              Color(0xFF16213e),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: AppSpacing.allXL,
+                child: Column(
+                  children: [
+                    UserAvatar(
+                      name: _userName ?? 'U',
+                      size: 80,
+                      gradient: AppColors.primaryGradient,
+                    ),
+                    AppSpacing.vGapMD,
+                    Text(
+                      _userName ?? 'User',
+                      style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    AppSpacing.vGapXS,
+                    Text(
+                      _userEmail ?? '',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                    AppSpacing.vGapMD,
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSuccess.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                        border: Border.all(color: AppColors.accentSuccess.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.accentSuccess,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          AppSpacing.hGapSM,
+                          Text(
+                            'Protected',
+                            style: AppTypography.caption.copyWith(color: AppColors.accentSuccess),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.emergency),
-                title: const Text('Emergency SOS', style: TextStyle(color: AppColors.textWhite)),
-                iconColor: AppColors.accentDanger,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).pushNamed('/emergency_sos');
-                },
+              
+              Divider(color: AppColors.borderLight.withValues(alpha: 0.3)),
+              
+              // Menu items
+              Expanded(
+                child: ListView(
+                  padding: AppSpacing.allMD,
+                  children: [
+                    _buildDrawerItem(
+                      icon: Iconsax.home_2,
+                      label: 'Home',
+                      isSelected: true,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    _buildDrawerItem(
+                      icon: Iconsax.call,
+                      label: 'Emergency SOS',
+                      color: AppColors.accentDanger,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).pushNamed('/emergency_sos');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Iconsax.people,
+                      label: 'Emergency Contacts',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EmergencyContactsScreen(
+                              contacts: _emergencyContacts ?? [],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Iconsax.routing,
+                      label: 'Journey History',
+                      onTap: () {
+                        Navigator.pop(context);
+                        // TODO: Journey history
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Iconsax.setting_2,
+                      label: 'Settings',
+                      onTap: () {
+                        Navigator.pop(context);
+                        // TODO: Settings
+                      },
+                    ),
+                  ],
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.contacts),
-                title: const Text('Emergency Contacts' ,style : TextStyle(color: AppColors.textWhite)),
-                iconColor: AppColors.accentDanger,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => EmergencyContactsScreen(
-                        contacts: _emergencyContacts ?? [],
+              
+              // Logout
+              Padding(
+                padding: AppSpacing.allMD,
+                child: _buildDrawerItem(
+                  icon: Iconsax.logout,
+                  label: 'Logout',
+                  color: AppColors.accentDanger,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _logout();
+                  },
+                ),
+              ),
+              
+              // Footer
+              Padding(
+                padding: AppSpacing.allMD,
+                child: Column(
+                  children: [
+                    Text(
+                      'GrievX',
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
                       ),
                     ),
-                  );
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout', style: TextStyle(color: AppColors.textWhite)),
-                iconColor: AppColors.accentDanger,
-                onTap: () {
-                  Navigator.pop(context);
-                  _logout();
-                },
+                    Text(
+                      'Version 1.0.0',
+                      style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        body: _isLoadingData
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // User Info Section
-                      if (_userEmail != null)
-                        Card(
-                          color: AppColors.bgCard,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: AppColors.primary,
-                                  radius: 30,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: AppColors.textWhite,
-                                    size: 30,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (_userName != null)
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _userName!,
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.textMain,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                          ],
-                                        ),
-                                      Text(
-                                        'Your Account',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _userEmail ?? 'N/A',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      
-                      // Start New Journey Button
-                      Card(
-                        color: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 4,
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).pushNamed('/location_entry');
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.navigation,
-                                    color: AppColors.textWhite,
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Start New Journey',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textWhite,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Track your trip with safety monitoring',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white.withValues(alpha: 0.8),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: AppColors.textWhite,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      //Greivance button
-                      Card(
-                        color: AppColors.secondary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 4,
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).pushNamed('/greivance');
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.report_problem,
-                                    color: AppColors.textWhite,
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Raise New Grievance',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textWhite,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Raise the grievanse and solve your problem',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white.withValues(alpha: 0.8),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: AppColors.textWhite,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-                      
-                      // Quick Actions Section
-                      const Text(
-                        'Quick Actions',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textMain,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildQuickAction(
-                              icon: Icons.emergency,
-                              label: 'Emergency',
-                              color: AppColors.accentDanger,
-                              onTap: () => Navigator.of(context).pushNamed('/emergency_sos'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildQuickAction(
-                              icon: Icons.contacts,
-                              label: 'Contacts',
-                              color: AppColors.secondary,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => EmergencyContactsScreen(
-                                    contacts: _emergencyContacts ?? [],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      
-                    ],
-                  ),
-                ),
-              ),
       ),
     );
   }
   
-  Widget _buildQuickAction({
+  Widget _buildDrawerItem({
     required IconData icon,
     required String label,
-    required Color color,
+    Color? color,
+    bool isSelected = false,
     required VoidCallback onTap,
   }) {
-    return Card(
-      color: AppColors.bgCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 28),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMain,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildSafetyTip(String tip) {
+    final itemColor = color ?? AppColors.textMain;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.check_circle,
-            color: AppColors.secondary,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tip,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+      padding: AppSpacing.verticalXS,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+          child: Container(
+            padding: AppSpacing.allMD,
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              border: isSelected ? Border.all(color: AppColors.primary.withValues(alpha: 0.3)) : null,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: isSelected ? AppColors.primary : itemColor, size: 22),
+                AppSpacing.hGapMD,
+                Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: isSelected ? AppColors.primary : itemColor,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -5,19 +5,19 @@ part 'contact_model.g.dart';
 @JsonSerializable()
 class Contact {
   final String name;
-  final String SmsNumber;
+  final String smsNumber;
   final String? whatsappNumber;
 
   Contact({
     required this.name,
-    required this.SmsNumber,
+    required this.smsNumber,
     this.whatsappNumber,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
-      'SmsNumber': SmsNumber,
+      'smsNumber': smsNumber,
       'whatsappNumber': whatsappNumber,
     };
   }
@@ -25,7 +25,7 @@ class Contact {
   factory Contact.fromMap(Map<String, dynamic> map) {
     return Contact(
       name: map['name'] ?? '',
-      SmsNumber: map['SmsNumber'] ?? '',
+      smsNumber: map['smsNumber'] ?? map['phoneNumber'] ?? '',
       whatsappNumber: map['whatsappNumber'],
     );
   }
@@ -36,5 +36,5 @@ class Contact {
   Map<String, dynamic> toJson() => _$ContactToJson(this);
 
   @override
-  String toString() => 'Contact(name: $name, SmsNumber: $SmsNumber, whatsappNumber: $whatsappNumber)';
+  String toString() => 'Contact(name: $name, SmsNumber: $smsNumber, whatsappNumber: $whatsappNumber)';
 }

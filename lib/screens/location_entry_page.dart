@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 import 'package:wellguard_ai/theme/colors.dart';
+import 'package:wellguard_ai/theme/typography.dart';
+import 'package:wellguard_ai/theme/spacing.dart';
 import 'package:wellguard_ai/services/location_service.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/providers/journey_provider.dart';
+import 'package:wellguard_ai/widgets/widgets.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class LocationEntryPage extends StatefulWidget {
   const LocationEntryPage({super.key});
@@ -15,11 +21,13 @@ class LocationEntryPage extends StatefulWidget {
   State<LocationEntryPage> createState() => _LocationEntryPageState();
 }
 
-class _LocationEntryPageState extends State<LocationEntryPage> {
+class _LocationEntryPageState extends State<LocationEntryPage> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _destinationController = TextEditingController();
   final _timeLimitController = TextEditingController();
   final _locationService = LocationService();
+  final _destinationFocus = FocusNode();
+  final _timeFocus = FocusNode();
 
   // Hardcoded start location
   static const double _hardcodedLatitude = 12.869462392059459;
@@ -31,11 +39,27 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
   String? _locationError;
   int? _userId;
   int? _emergencyContactsCount;
+  double _selectedTimeLimit = 30; // Default 30 minutes
+  
+  late AnimationController _buttonController;
+  late Animation<double> _buttonScale;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _initialize();
+    _timeLimitController.text = '30';
+  }
+  
+  void _setupAnimations() {
+    _buttonController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _buttonScale = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _buttonController, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _initialize() async {
@@ -108,18 +132,29 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
-        title: const Text(
-          'Location Permission Required',
-          style: TextStyle(color: AppColors.textMain),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
+        title: Row(
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentWarning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.location_slash, color: AppColors.accentWarning, size: 20),
+            ),
+            AppSpacing.hGapMD,
+            Text('Location Required', style: AppTypography.titleLarge),
+          ],
         ),
-        content: const Text(
+        content: Text(
           'This app needs location access to track your journey and ensure your safety. Please enable location permission in settings.',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -128,11 +163,10 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'Open Settings',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('Open Settings', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -264,6 +298,9 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
   void dispose() {
     _destinationController.dispose();
     _timeLimitController.dispose();
+    _destinationFocus.dispose();
+    _timeFocus.dispose();
+    _buttonController.dispose();
     super.dispose();
   }
 
@@ -271,336 +308,537 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgMain,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        title: const Text(
-          'WellGuard - Start Journey',
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontWeight: FontWeight.bold,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // Animated background
+          const AnimatedGradientBackground(),
+          
+          // Content
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: AppSpacing.allLG,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    _buildHeader()
+                        .animate()
+                        .fadeIn(duration: 500.ms)
+                        .slideY(begin: -0.2, end: 0),
+                    AppSpacing.vGapXL,
+                    
+                    // Route timeline
+                    _buildRouteTimeline()
+                        .animate()
+                        .fadeIn(duration: 500.ms, delay: 200.ms)
+                        .slideX(begin: -0.2, end: 0),
+                    AppSpacing.vGapXL,
+                    
+                    // Time limit section
+                    _buildTimeLimitSection()
+                        .animate()
+                        .fadeIn(duration: 500.ms, delay: 300.ms)
+                        .slideY(begin: 0.2, end: 0),
+                    AppSpacing.vGapXL,
+                    
+                    // Safety info card
+                    _buildSafetyInfoCard()
+                        .animate()
+                        .fadeIn(duration: 500.ms, delay: 400.ms)
+                        .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1)),
+                    AppSpacing.vGapXL,
+                    
+                    // Start button
+                    _buildStartButton()
+                        .animate()
+                        .fadeIn(duration: 500.ms, delay: 500.ms)
+                        .slideY(begin: 0.3, end: 0),
+                    AppSpacing.vGapLG,
+                    
+                    // Back link
+                    _buildBackLink()
+                        .animate()
+                        .fadeIn(duration: 500.ms, delay: 600.ms),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Back button
+        GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: GlassCard(
+            padding: AppSpacing.allSM,
+            borderRadius: AppSpacing.radiusMD,
+            child: const Icon(Iconsax.arrow_left, color: AppColors.textMain, size: 24),
           ),
         ),
-        iconTheme: const IconThemeData(color: AppColors.textWhite),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
+        AppSpacing.vGapLG,
+        Row(
+          children: [
+            Container(
+              padding: AppSpacing.allMD,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.routing_2, color: AppColors.textWhite, size: 28),
+            ),
+            AppSpacing.hGapMD,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Start Journey', style: AppTypography.headlineMedium.copyWith(fontWeight: FontWeight.bold)),
+                  AppSpacing.vGapXS,
+                  Text(
+                    'Enter your destination for safe tracking',
+                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildRouteTimeline() {
+    return GlassCard(
+      padding: AppSpacing.allLG,
+      borderRadius: AppSpacing.radiusXL,
+      child: Column(
+        children: [
+          // Start location
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting
-              const Text(
-                'Where are you going?',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textMain,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter your destination and we\'ll keep you safe',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Destination Input
-              TextFormField(
-                controller: _destinationController,
-                style: const TextStyle(color: AppColors.textMain),
-                decoration: InputDecoration(
-                  labelText: 'Enter Destination',
-                  labelStyle: const TextStyle(color: AppColors.textSecondary),
-                  hintText: 'e.g., Mandaveli, Chennai',
-                  hintStyle: const TextStyle(color: AppColors.textMuted),
-                  prefixIcon: const Icon(
-                    Icons.location_on,
-                    color: AppColors.primary,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.bgCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.borderLight),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.borderLight),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a destination';
-                  }
-                  if (value.trim().length < 3) {
-                    return 'Destination must be at least 3 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Time Limit Input
-              TextFormField(
-                controller: _timeLimitController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: AppColors.textMain),
-                decoration: InputDecoration(
-                  labelText: 'Approx. Time to Reach (minutes)',
-                  labelStyle: const TextStyle(color: AppColors.textSecondary),
-                  hintText: 'e.g., 30',
-                  hintStyle: const TextStyle(color: AppColors.textMuted),
-                  prefixIcon: const Icon(
-                    Icons.access_time,
-                    color: AppColors.primary,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.bgCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.borderLight),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.borderLight),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter time limit';
-                  }
-                  final time = int.tryParse(value.trim());
-                  if (time == null || time <= 0) {
-                    return 'Please enter a valid positive number';
-                  }
-                  if (time > 999) {
-                    return 'Time limit cannot exceed 999 minutes';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Current Location Display
-              Card(
-                color: AppColors.bgCard,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: _locationError != null
-                        ? AppColors.accentDanger
-                        : AppColors.borderLight,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: _locationError != null
-                              ? AppColors.accentDanger.withValues(alpha: 0.1)
-                              : AppColors.primaryLight.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          _locationError != null
-                              ? Icons.location_off
-                              : Icons.my_location,
-                          color: _locationError != null
-                              ? AppColors.accentDanger
-                              : AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Starting From',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (_isLoadingLocation)
-                              Row(
-                                children: const [
-                                  SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Fetching location...',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else if (_locationError != null)
-                              Text(
-                                _locationError!,
-                                style: const TextStyle(
-                                  color: AppColors.accentDanger,
-                                  fontSize: 14,
-                                ),
-                              )
-                            else if (_currentPosition != null)
-                              Text(
-                                '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                                style: const TextStyle(
-                                  color: AppColors.textMain,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (_locationError != null)
-                        IconButton(
-                          icon: const Icon(
-                            Icons.refresh,
-                            color: AppColors.primary,
-                          ),
-                          onPressed: _fetchCurrentLocation,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Start Journey Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: (_isSubmitting ||
-                          _isLoadingLocation ||
-                          _currentPosition == null)
-                      ? null
-                      : _startJourney,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.borderDark,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSuccess.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                      border: Border.all(color: AppColors.accentSuccess, width: 2),
                     ),
-                    elevation: 4,
+                    child: const Icon(Iconsax.gps, color: AppColors.accentSuccess, size: 20),
                   ),
-                  child: _isSubmitting
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: AppColors.textWhite,
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Finding Safe Route...',
-                              style: TextStyle(
-                                color: AppColors.textWhite,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.navigation,
-                              color: AppColors.textWhite,
-                              size: 24,
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Start Journey',
-                              style: TextStyle(
-                                color: AppColors.textWhite,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
+                  Container(
+                    width: 2,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppColors.accentSuccess,
+                          AppColors.primary.withValues(alpha: 0.3),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-
-              // Footer Info
-              Center(
+              AppSpacing.hGapMD,
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.contacts,
-                          color: AppColors.secondary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_emergencyContactsCount ?? 0} emergency contacts added',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
+                    Text('Starting From', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+                    AppSpacing.vGapXS,
+                    if (_isLoadingLocation)
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
                           ),
+                          AppSpacing.hGapSM,
+                          Text('Fetching location...', style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary)),
+                        ],
+                      )
+                    else if (_locationError != null)
+                      GestureDetector(
+                        onTap: _fetchCurrentLocation,
+                        child: Row(
+                          children: [
+                            const Icon(Iconsax.location_slash, color: AppColors.accentDanger, size: 16),
+                            AppSpacing.hGapSM,
+                            Expanded(
+                              child: Text(
+                                _locationError!,
+                                style: AppTypography.bodySmall.copyWith(color: AppColors.accentDanger),
+                              ),
+                            ),
+                            const Icon(Iconsax.refresh, color: AppColors.primary, size: 16),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Current Location',
+                            style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          AppSpacing.vGapXS,
+                          Container(
+                            padding: AppSpacing.horizontalSM + AppSpacing.verticalXS,
+                            decoration: BoxDecoration(
+                              color: AppColors.accentSuccess.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                            ),
+                            child: Text(
+                              '${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}',
+                              style: AppTypography.caption.copyWith(color: AppColors.accentSuccess, fontFamily: 'monospace'),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          // Destination
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                ),
+                child: const Icon(Iconsax.location, color: AppColors.textWhite, size: 20),
+              ),
+              AppSpacing.hGapMD,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Destination', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+                    AppSpacing.vGapSM,
+                    TextFormField(
+                      controller: _destinationController,
+                      focusNode: _destinationFocus,
+                      style: AppTypography.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: 'e.g., Mandaveli, Chennai',
+                        hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                        filled: true,
+                        fillColor: AppColors.bgGlass,
+                        contentPadding: AppSpacing.horizontalMD + AppSpacing.verticalMD,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                          borderSide: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                          borderSide: const BorderSide(color: AppColors.accentDanger),
+                        ),
+                        prefixIcon: const Icon(Iconsax.search_normal, color: AppColors.textSecondary, size: 20),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter a destination';
+                        }
+                        if (value.trim().length < 3) {
+                          return 'At least 3 characters required';
+                        }
+                        return null;
                       },
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        size: 18,
-                      ),
-                      label: const Text('Back to Home'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                      ),
+                      onFieldSubmitted: (_) => _timeFocus.requestFocus(),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTimeLimitSection() {
+    return GlassCard(
+      padding: AppSpacing.allLG,
+      borderRadius: AppSpacing.radiusXL,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: AppSpacing.allSM,
+                decoration: BoxDecoration(
+                  color: AppColors.accentWarning.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                ),
+                child: const Icon(Iconsax.timer_1, color: AppColors.accentWarning, size: 20),
+              ),
+              AppSpacing.hGapMD,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Expected Travel Time', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
+                    Text('SOS triggered if exceeded', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: AppSpacing.horizontalMD + AppSpacing.verticalSM,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                ),
+                child: Text(
+                  '${_selectedTimeLimit.toInt()} min',
+                  style: AppTypography.titleMedium.copyWith(
+                    color: AppColors.textWhite,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          AppSpacing.vGapLG,
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: AppColors.borderLight,
+              thumbColor: AppColors.primary,
+              overlayColor: AppColors.primary.withValues(alpha: 0.2),
+              trackHeight: 6,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+            ),
+            child: Slider(
+              value: _selectedTimeLimit,
+              min: 5,
+              max: 180,
+              divisions: 35,
+              onChanged: (value) {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _selectedTimeLimit = value;
+                  _timeLimitController.text = value.toInt().toString();
+                });
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('5 min', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+              Text('180 min', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+            ],
+          ),
+          AppSpacing.vGapMD,
+          // Quick time presets
+          Row(
+            children: [
+              _buildTimePreset(15),
+              AppSpacing.hGapSM,
+              _buildTimePreset(30),
+              AppSpacing.hGapSM,
+              _buildTimePreset(60),
+              AppSpacing.hGapSM,
+              _buildTimePreset(120),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTimePreset(int minutes) {
+    final isSelected = _selectedTimeLimit == minutes.toDouble();
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() {
+            _selectedTimeLimit = minutes.toDouble();
+            _timeLimitController.text = minutes.toString();
+          });
+        },
+        child: Container(
+          padding: AppSpacing.verticalSM,
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : AppColors.bgGlass,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.borderLight.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              '$minutes',
+              style: AppTypography.labelLarge.copyWith(
+                color: isSelected ? AppColors.textWhite : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildSafetyInfoCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.secondary.withValues(alpha: 0.2),
+            AppColors.secondary.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+      ),
+      padding: AppSpacing.allMD,
+      child: Row(
+        children: [
+          Container(
+            padding: AppSpacing.allMD,
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+            ),
+            child: const Icon(Iconsax.shield_tick, color: AppColors.secondary, size: 24),
+          ),
+          AppSpacing.hGapMD,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Safety Protection Active', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
+                AppSpacing.vGapXS,
+                Text(
+                  '${_emergencyContactsCount ?? 0} contacts will be alerted in emergency',
+                  style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildStartButton() {
+    final isEnabled = !_isSubmitting && !_isLoadingLocation && _currentPosition != null;
+    
+    return ScaleTransition(
+      scale: _buttonScale,
+      child: GestureDetector(
+        onTapDown: (_) => _buttonController.forward(),
+        onTapUp: (_) => _buttonController.reverse(),
+        onTapCancel: () => _buttonController.reverse(),
+        onTap: isEnabled ? () {
+          HapticFeedback.heavyImpact();
+          _startJourney();
+        } : null,
+        child: Container(
+          width: double.infinity,
+          height: 60,
+          decoration: BoxDecoration(
+            gradient: isEnabled ? AppColors.primaryGradient : null,
+            color: isEnabled ? null : AppColors.borderDark,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+            boxShadow: isEnabled ? [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ] : null,
+          ),
+          child: Center(
+            child: _isSubmitting
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: AppColors.textWhite,
+                        ),
+                      ),
+                      AppSpacing.hGapMD,
+                      Text(
+                        'Finding Safe Route...',
+                        style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.textWhite,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Iconsax.routing, color: AppColors.textWhite, size: 24),
+                      AppSpacing.hGapMD,
+                      Text(
+                        'Start Safe Journey',
+                        style: AppTypography.titleMedium.copyWith(
+                          color: isEnabled ? AppColors.textWhite : AppColors.textMuted,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildBackLink() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: () => Navigator.of(context).pop(),
+        icon: const Icon(Iconsax.arrow_left_2, size: 18),
+        label: Text('Back to Home', style: AppTypography.labelLarge),
+        style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
       ),
     );
   }

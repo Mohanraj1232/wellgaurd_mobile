@@ -34,6 +34,22 @@ dependencies:
   # Audio Recording  
   record: ^6.0.0
   path_provider: ^2.1.2
+  
+  # UI Enhancement Packages
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  lottie: ^3.1.0
+  flutter_svg: ^2.0.10+1
+  iconsax_flutter: ^1.0.0
+  animated_text_kit: ^4.2.2
+  percent_indicator: ^4.2.3
+  sliding_up_panel: ^2.0.0+1
+  flutter_staggered_animations: ^1.1.1
+  glassmorphism_ui: ^0.3.0
+  simple_animations: ^5.0.2
+  url_launcher: ^6.2.5
+  haptic_feedback: ^0.5.1+1
 
 dev_dependencies:
   flutter_test:

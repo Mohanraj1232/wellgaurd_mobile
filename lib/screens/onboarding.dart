@@ -9,8 +9,10 @@ import 'package:dio/dio.dart';
 class OnboardingScreen extends StatefulWidget {
   final int userId;
   final String token;
+  final String userName;
+  final String phoneNumber;
 
-  const OnboardingScreen({super.key, required this.userId, required this.token});
+  const OnboardingScreen({super.key, required this.userId, required this.token, required this.userName, required this.phoneNumber});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -146,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _contacts.add(
                   Contact(
                     name: _nameController.text,
-                    SmsNumber: _phoneController.text,
+                    smsNumber: _phoneController.text,
                     whatsappNumber: _whatsappController.text,
                   ),
                 );
@@ -179,7 +181,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final List<ContactData> contactsData = _contacts
           .map((contact) => ContactData(
                 name: contact.name,
-                SmsNumber: contact.SmsNumber,
+                smsNumber: contact.smsNumber,
                 whatsappNumber: contact.whatsappNumber,
               ))
           .toList();
@@ -188,6 +190,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final response = await apiClient.saveContacts(
         OnboardingRequest(
           userId: widget.userId,
+          name: widget.userName,
+          phoneNumber: widget.phoneNumber,
           contacts: contactsData,
         ),
       );
@@ -358,9 +362,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (contact.SmsNumber.isNotEmpty)
+                              if (contact.smsNumber.isNotEmpty)
                                 Text(
-                                  'Phone: ${contact.SmsNumber}',
+                                  'Phone: ${contact.smsNumber}',
                                   style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 12,

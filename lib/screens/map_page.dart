@@ -1,16 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wellguard_ai/theme/colors.dart';
+import 'package:wellguard_ai/theme/typography.dart';
+import 'package:wellguard_ai/theme/spacing.dart';
 import 'package:wellguard_ai/providers/journey_provider.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/services/location_service.dart';
+import 'package:wellguard_ai/widgets/widgets.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -238,42 +243,43 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   }
 
   Future<void> _triggerSOS() async {
+    HapticFeedback.heavyImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
         title: Row(
-          children: const [
-            Icon(Icons.warning_amber, color: AppColors.accentDanger, size: 28),
-            SizedBox(width: 8),
-            Text(
-              'Trigger SOS?',
-              style: TextStyle(color: AppColors.textMain),
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentDanger.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.warning_2, color: AppColors.accentDanger, size: 24),
             ),
+            AppSpacing.hGapMD,
+            Text('Trigger SOS?', style: AppTypography.titleLarge),
           ],
         ),
-        content: const Text(
+        content: Text(
           'This will immediately alert your emergency contacts with your current location. Are you sure?',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accentDanger,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'SEND SOS',
-              style: TextStyle(
-                color: AppColors.textWhite,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text('SEND SOS', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -336,14 +342,19 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
         title: Row(
-          children: const [
-            Icon(Icons.check_circle, color: AppColors.secondary, size: 28),
-            SizedBox(width: 8),
-            Text(
-              '🚨 SOS Alert Sent!',
-              style: TextStyle(color: AppColors.textMain),
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentSuccess.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.tick_circle, color: AppColors.accentSuccess, size: 24),
             ),
+            AppSpacing.hGapMD,
+            Text('SOS Alert Sent!', style: AppTypography.titleLarge),
           ],
         ),
         content: Column(
@@ -352,14 +363,24 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
           children: [
             Text(
               'Your emergency contacts have been notified.',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Notifications sent: $notificationsSent',
-              style: const TextStyle(
-                color: AppColors.textMain,
-                fontWeight: FontWeight.w500,
+            AppSpacing.vGapMD,
+            Container(
+              padding: AppSpacing.allMD,
+              decoration: BoxDecoration(
+                color: AppColors.accentSuccess.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Iconsax.notification, color: AppColors.accentSuccess, size: 20),
+                  AppSpacing.hGapSM,
+                  Text(
+                    '$notificationsSent notifications sent',
+                    style: AppTypography.titleSmall.copyWith(color: AppColors.accentSuccess, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ),
           ],
@@ -368,18 +389,13 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/home',
-                (route) => false,
-              );
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'OK',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('OK', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -392,36 +408,36 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
         title: Row(
-          children: const [
-            Icon(Icons.warning, color: AppColors.accentWarning, size: 28),
-            SizedBox(width: 8),
-            Text(
-              '⚠️ Time Limit Exceeded',
-              style: TextStyle(color: AppColors.textMain),
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentWarning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.timer_pause, color: AppColors.accentWarning, size: 24),
             ),
+            AppSpacing.hGapMD,
+            Text('Time Exceeded', style: AppTypography.titleLarge),
           ],
         ),
-        content: const Text(
+        content: Text(
           'You haven\'t reached your destination within the time limit. Your emergency contacts have been automatically notified.',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/home',
-                (route) => false,
-              );
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'OK',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('OK', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -434,41 +450,40 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
         title: Row(
-          children: const [
-            Icon(Icons.celebration, color: AppColors.secondary, size: 28),
-            SizedBox(width: 8),
-            Text(
-              '🎉 You\'ve Arrived Safely!',
-              style: TextStyle(color: AppColors.textMain),
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                gradient: AppColors.successGradient,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.medal_star, color: AppColors.textWhite, size: 24),
             ),
+            AppSpacing.hGapMD,
+            Text('Arrived Safely!', style: AppTypography.titleLarge),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Journey completed successfully. Stay safe!',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           ElevatedButton(
             onPressed: () {
-              final journeyProvider =
-                  Provider.of<JourneyProvider>(context, listen: false);
+              final journeyProvider = Provider.of<JourneyProvider>(context, listen: false);
               journeyProvider.completeJourney();
               journeyProvider.reset();
 
               Navigator.pop(context);
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/home',
-                (route) => false,
-              );
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'Done',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('Done', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -480,28 +495,37 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
-        title: const Text(
-          'Cancel Journey?',
-          style: TextStyle(color: AppColors.textMain),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXL)),
+        title: Row(
+          children: [
+            Container(
+              padding: AppSpacing.allSM,
+              decoration: BoxDecoration(
+                color: AppColors.accentWarning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              ),
+              child: const Icon(Iconsax.close_circle, color: AppColors.accentWarning, size: 24),
+            ),
+            AppSpacing.hGapMD,
+            Text('Cancel Journey?', style: AppTypography.titleLarge),
+          ],
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to cancel this journey?',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: Text('No', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accentWarning,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
             ),
-            child: const Text(
-              'Yes, Cancel',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
+            child: Text('Yes, Cancel', style: AppTypography.labelLarge.copyWith(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -695,100 +719,84 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   Widget _buildInfoCard() {
     return Consumer<JourneyProvider>(
       builder: (context, journey, child) {
-        return Card(
-          color: AppColors.bgCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 4,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Safety Score
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: journey.safetyColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.shield,
+        return GlassCard(
+          padding: AppSpacing.allMD,
+          borderRadius: AppSpacing.radiusXL,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Safety Score
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: AppSpacing.horizontalMD + AppSpacing.verticalSM,
+                        decoration: BoxDecoration(
+                          color: journey.safetyColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                          border: Border.all(color: journey.safetyColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Iconsax.shield_tick, color: journey.safetyColor, size: 18),
+                            AppSpacing.hGapSM,
+                            Text(
+                              '${journey.safetyScore}/100',
+                              style: AppTypography.titleSmall.copyWith(
                                 color: journey.safetyColor,
-                                size: 20,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${journey.safetyScore}/100',
-                                style: TextStyle(
-                                  color: journey.safetyColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          journey.riskText,
-                          style: TextStyle(
-                            color: journey.safetyColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        _showRoadInfo
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        color: AppColors.textSecondary,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _showRoadInfo = !_showRoadInfo;
-                        });
-                      },
+                      AppSpacing.hGapSM,
+                      Text(
+                        journey.riskText,
+                        style: AppTypography.labelMedium.copyWith(
+                          color: journey.safetyColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _showRoadInfo = !_showRoadInfo;
+                      });
+                    },
+                    child: Container(
+                      padding: AppSpacing.allXS,
+                      decoration: BoxDecoration(
+                        color: AppColors.bgGlass,
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                      ),
+                      child: Icon(
+                        _showRoadInfo ? Iconsax.arrow_up_2 : Iconsax.arrow_down_1,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
                     ),
-                  ],
-                ),
-                const Divider(height: 20),
-                // Journey Info
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildInfoItem(
-                      Icons.straighten,
-                      journey.formattedDistance,
-                      'Distance',
-                    ),
-                    _buildInfoItem(
-                      Icons.access_time,
-                      '${journey.minutesRemaining} min',
-                      'Remaining',
-                    ),
-                    _buildInfoItem(
-                      Icons.schedule,
-                      _getExpectedArrival(journey.routeData?.expectedArrivalTime),
-                      'ETA',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+              Divider(height: AppSpacing.xl, color: AppColors.borderLight.withValues(alpha: 0.3)),
+              // Journey Info
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildInfoItem(Iconsax.routing, journey.formattedDistance, 'Distance'),
+                  Container(width: 1, height: 40, color: AppColors.borderLight.withValues(alpha: 0.3)),
+                  _buildInfoItem(Iconsax.timer_1, '${journey.minutesRemaining} min', 'Remaining'),
+                  Container(width: 1, height: 40, color: AppColors.borderLight.withValues(alpha: 0.3)),
+                  _buildInfoItem(Iconsax.clock, _getExpectedArrival(journey.routeData?.expectedArrivalTime), 'ETA'),
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -798,22 +806,22 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   Widget _buildInfoItem(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(height: 4),
+        Container(
+          padding: AppSpacing.allXS,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 18),
+        ),
+        AppSpacing.vGapXS,
         Text(
           value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: AppColors.textMain,
-          ),
+          style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textMuted,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
         ),
       ],
     );
@@ -841,50 +849,52 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
           case JourneyStatus.active:
             bgColor = AppColors.secondary;
             textColor = AppColors.textWhite;
-            statusText = 'Tracking...';
-            icon = Icons.gps_fixed;
+            statusText = 'Tracking';
+            icon = Iconsax.gps;
             break;
           case JourneyStatus.completed:
             bgColor = AppColors.secondary;
             textColor = AppColors.textWhite;
             statusText = 'Arrived!';
-            icon = Icons.check_circle;
+            icon = Iconsax.tick_circle;
             break;
           case JourneyStatus.sosTriggered:
             bgColor = AppColors.accentDanger;
             textColor = AppColors.textWhite;
-            statusText = 'SOS TRIGGERED';
-            icon = Icons.warning;
+            statusText = 'SOS ACTIVE';
+            icon = Iconsax.warning_2;
             break;
           default:
             bgColor = AppColors.borderLight;
             textColor = AppColors.textSecondary;
             statusText = 'Idle';
-            icon = Icons.circle;
+            icon = Iconsax.record;
         }
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: AppSpacing.horizontalMD + AppSpacing.verticalSM,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            boxShadow: [
+              BoxShadow(
+                color: bgColor.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: textColor, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                statusText,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
+              Icon(icon, color: textColor, size: 14),
+              AppSpacing.hGapXS,
+              Text(statusText, style: AppTypography.caption.copyWith(color: textColor, fontWeight: FontWeight.w600)),
             ],
           ),
-        );
+        )
+            .animate(onPlay: (controller) => controller.repeat())
+            .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.3));
       },
     );
   }
@@ -895,55 +905,65 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
         final roads = journey.routeData?.roadsUsed ?? [];
 
         if (roads.isEmpty) {
-          return Card(
-            color: AppColors.bgCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Text(
-                'No road information available',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
+          return GlassCard(
+            padding: AppSpacing.allMD,
+            borderRadius: AppSpacing.radiusLG,
+            child: Text(
+              'No road information available',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
           );
         }
 
-        return Card(
-          color: AppColors.bgCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
+        return GlassCard(
+          padding: AppSpacing.allSM,
+          borderRadius: AppSpacing.radiusLG,
           child: Container(
             constraints: const BoxConstraints(maxHeight: 200),
             child: ListView.builder(
               shrinkWrap: true,
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.zero,
               itemCount: roads.length,
               itemBuilder: (context, index) {
                 final road = roads[index];
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.route,
-                    color: AppColors.primary,
-                    size: 20,
+                return Container(
+                  padding: AppSpacing.allSM,
+                  margin: EdgeInsets.only(bottom: index < roads.length - 1 ? AppSpacing.xs : 0),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgGlass,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   ),
-                  title: Text(
-                    road.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Row(
+                  child: Row(
                     children: [
-                      if (road.quality != null)
-                        _buildRoadRating('Quality', road.quality!),
-                      if (road.lighting != null)
-                        _buildRoadRating('Lights', road.lighting!),
+                      Container(
+                        padding: AppSpacing.allXS,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        ),
+                        child: const Icon(Iconsax.routing_2, color: AppColors.primary, size: 16),
+                      ),
+                      AppSpacing.hGapSM,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              road.name,
+                              style: AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w500),
+                            ),
+                            AppSpacing.vGapXS,
+                            Row(
+                              children: [
+                                if (road.quality != null)
+                                  _buildRoadRating('Quality', road.quality!),
+                                if (road.lighting != null)
+                                  _buildRoadRating('Lights', road.lighting!),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -956,27 +976,23 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   }
 
   Widget _buildRoadRating(String label, double value) {
+    final color = value >= 7
+        ? AppColors.accentSuccess
+        : (value >= 4 ? AppColors.accentWarning : AppColors.accentDanger);
     return Container(
       margin: const EdgeInsets.only(right: 8),
+      padding: AppSpacing.horizontalSM + AppSpacing.verticalXS,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textMuted,
-            ),
-          ),
+          Text('$label ', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
           Text(
             '${value.toStringAsFixed(0)}/10',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: value >= 7
-                  ? AppColors.secondary
-                  : (value >= 4 ? AppColors.accentWarning : AppColors.accentDanger),
-            ),
+            style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: color),
           ),
         ],
       ),
@@ -986,96 +1002,103 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   Widget _buildBottomControls() {
     return Container(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.md,
+        bottom: MediaQuery.of(context).padding.bottom + AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.bgMain.withValues(alpha: 0.8),
+            AppColors.bgMain,
+          ],
+        ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // SOS Button
+          // Handle indicator
+          Container(
+            width: 40,
+            height: 4,
+            margin: AppSpacing.bottomSM,
+            decoration: BoxDecoration(
+              color: AppColors.borderLight,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            ),
+          ),
+          // SOS Button with pulsing animation
           ScaleTransition(
             scale: _pulseAnimation,
-            child: SizedBox(
-              width: double.infinity,
-              height: 64,
-              child: ElevatedButton(
-                onPressed: _isSendingSOS ? null : _triggerSOS,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentDanger,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 6,
+            child: GestureDetector(
+              onTap: _isSendingSOS ? null : _triggerSOS,
+              child: Container(
+                width: double.infinity,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: AppColors.dangerGradient,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accentDanger.withValues(alpha: 0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                child: _isSendingSOS
-                    ? const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: AppColors.textWhite,
+                child: Center(
+                  child: _isSendingSOS
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: AppColors.textWhite,
+                              ),
                             ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Sending SOS...',
-                            style: TextStyle(
-                              color: AppColors.textWhite,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                            AppSpacing.hGapMD,
+                            Text(
+                              'Sending SOS...',
+                              style: AppTypography.titleMedium.copyWith(
+                                color: AppColors.textWhite,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.warning_amber,
-                            color: AppColors.textWhite,
-                            size: 28,
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'EMERGENCY SOS',
-                            style: TextStyle(
-                              color: AppColors.textWhite,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Iconsax.warning_2, color: AppColors.textWhite, size: 28),
+                            AppSpacing.hGapMD,
+                            Text(
+                              'EMERGENCY SOS',
+                              style: AppTypography.titleMedium.copyWith(
+                                color: AppColors.textWhite,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          AppSpacing.vGapMD,
           // Cancel Button
-          TextButton(
+          TextButton.icon(
             onPressed: _cancelJourney,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-            ),
-            child: const Text(
-              'Cancel Journey',
-              style: TextStyle(fontSize: 16),
-            ),
+            icon: const Icon(Iconsax.close_circle, size: 18),
+            label: Text('Cancel Journey', style: AppTypography.labelLarge),
+            style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
           ),
         ],
       ),
