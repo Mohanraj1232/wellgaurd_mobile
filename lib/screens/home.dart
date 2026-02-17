@@ -144,6 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
               try {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
+                
+                // Clear token from DioClient
+                DioClient.clearToken();
 
                 if (mounted) {
                   Navigator.of(context).pushNamedAndRemoveUntil(

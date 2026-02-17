@@ -5,6 +5,26 @@ import 'package:wellguard_ai/services/api_client.dart';
 class DioClient {
   static Dio? _dio;
   static ApiClient? _apiClient;
+  static String? _token;
+
+  static void setToken(String token) {
+    _token = token;
+    // Update existing Dio instance headers if it exists
+    if (_dio != null) {
+      _dio!.options.headers['Authorization'] = 'Bearer $token';
+    }
+  }
+
+  static void clearToken() {
+    _token = null;
+    if (_dio != null) {
+      _dio!.options.headers.remove('Authorization');
+    }
+  }
+
+  static String? getToken() {
+    return _token;
+  }
 
   static Dio getDio() {
     if (_dio == null) {
@@ -16,6 +36,7 @@ class DioClient {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            if (_token != null) 'Authorization': 'Bearer $_token',
           },
         ),
       );

@@ -8,8 +8,9 @@ import 'package:dio/dio.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final int userId;
+  final String token;
 
-  const OnboardingScreen({super.key, required this.userId});
+  const OnboardingScreen({super.key, required this.userId, required this.token});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -194,9 +195,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (response.success) {
         final prefs = await SharedPreferences.getInstance();
 
-        // Save login status and user id
-        await prefs.setBool('isloggedin', true);
+        // Save token and user id
+        await prefs.setString('token', widget.token);
         await prefs.setInt('userid', widget.userId);
+        
+        // Update DioClient with the token
+        DioClient.setToken(widget.token);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

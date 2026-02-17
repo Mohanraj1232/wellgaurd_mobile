@@ -9,6 +9,7 @@ import 'package:wellguard_ai/screens/emergency_sos.dart';
 import 'package:wellguard_ai/screens/location_entry_page.dart';
 import 'package:wellguard_ai/screens/map_page.dart';
 import 'package:wellguard_ai/providers/journey_provider.dart';
+import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 
 void main() {
@@ -42,10 +43,16 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('isloggedin') ?? false;
+    final token = prefs.getString('token');
+    
+    // Check if token exists (user is logged in)
+    if (token != null && token.isNotEmpty) {
+      // Initialize DioClient with the saved token
+      DioClient.setToken(token);
+    }
     
     setState(() {
-      _isLoggedIn = isLoggedIn;
+      _isLoggedIn = token != null && token.isNotEmpty;
       _isCheckingLogin = false;
     });
   }
@@ -69,8 +76,16 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/onboarding': (context) {
-          final userId = ModalRoute.of(context)?.settings.arguments as int? ?? 1;
-          return OnboardingScreen(userId: userId);
+          final args = ModalRoute.of(context)?.settings.arguments;
+          int userId = 1;
+          String token = '';
+          if (args is Map<String, dynamic>) {
+            userId = args['userId'] as int? ?? 1;
+            token = args['token'] as String? ?? '';
+          } else if (args is int) {
+            userId = args;
+          }
+          return OnboardingScreen(userId: userId, token: token);
         },
         '/home': (context) => const HomeScreen(),
         '/greivance' : (context) => const GrievancePage(),

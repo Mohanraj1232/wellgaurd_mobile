@@ -98,21 +98,34 @@ class _LoginScreenState extends State<LoginScreen> {
         final isExistingUser = data['isExistingUser'] is bool
             ? data['isExistingUser'] as bool
             : data['isExistingUser'].toString().toLowerCase() == 'true';
+        final token = data['token'] as String?;
+        
+        if (token == null || token.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid token received from server')),
+            );
+          }
+          return;
+        }
         
         // Check if it's a new user or existing user
         if (!isExistingUser) {
-          // New user - navigate to onboarding with userId
+          // New user - navigate to onboarding with userId and token
           if (mounted) {
             Navigator.of(context).pushReplacementNamed(
               '/onboarding',
-              arguments: userId,
+              arguments: {'userId': userId, 'token': token},
             );
           }
         } else {
-          // Existing user - save userId and navigate to home
+          // Existing user - save token and userId, then navigate to home
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt('userid', userId);
-          await prefs.setBool('isloggedin', true);
+          await prefs.setString('token', token);
+          
+          // Update DioClient with the new token
+          DioClient.setToken(token);
           
           if (mounted) {
             Navigator.of(context).pushReplacementNamed(
