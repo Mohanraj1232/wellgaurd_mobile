@@ -228,16 +228,14 @@ class ApiClient {
     }
   }
 
-  // Get all grievances for user
-  Future<ApiResponse<List<Grievance>>> getAllGrievances() async {
+  // Get all grievances for user with status summary
+  Future<ApiResponse<UserGrievanceResponse>> getUserGrievances() async {
     try {
-      final response = await _dio.get('/api/grevance/get-all-grevance');
+      final response = await _dio.get('/api/grevance/get-user-grievance');
 
-      return ApiResponse<List<Grievance>>.fromJson(
+      return ApiResponse<UserGrievanceResponse>.fromJson(
         response.data,
-        (json) => (json as List)
-            .map((item) => Grievance.fromJson(item as Map<String, dynamic>))
-            .toList(),
+        (json) => UserGrievanceResponse.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
       rethrow;

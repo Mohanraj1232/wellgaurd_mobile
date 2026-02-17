@@ -31,6 +31,26 @@ Map<String, dynamic> _$DepartmentDropdownToJson(DepartmentDropdown instance) =>
       'name': instance.name,
     };
 
+Grievance _$GrievanceFromJson(Map<String, dynamic> json) => Grievance(
+      id: json['_id'] as String?,
+      userId: json['userId'] as String?,
+      departmentId: json['departmentId'],
+      title: json['title'] as String,
+      description: json['description'] as String,
+      image: json['image'] as String?,
+      status: json['status'] as String? ?? 'submitted',
+      resolution: json['resolution'] as String?,
+      resolvedAt: json['resolvedAt'] == null
+          ? null
+          : DateTime.parse(json['resolvedAt'] as String),
+      createdAt: json['createdAt'] == null
+          ? null
+          : DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] == null
+          ? null
+          : DateTime.parse(json['updatedAt'] as String),
+    );
+
 Map<String, dynamic> _$GrievanceToJson(Grievance instance) => <String, dynamic>{
       '_id': instance.id,
       'userId': instance.userId,
@@ -57,4 +77,20 @@ Map<String, dynamic> _$GrievanceRequestToJson(GrievanceRequest instance) =>
       'title': instance.title,
       'description': instance.description,
       'departmentId': instance.departmentId,
+    };
+
+StatusSummary _$StatusSummaryFromJson(Map<String, dynamic> json) =>
+    StatusSummary(
+      submitted: (json['submitted'] as num).toInt(),
+      inprogress: (json['inprogress'] as num).toInt(),
+      completed: (json['completed'] as num).toInt(),
+      total: (json['total'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$StatusSummaryToJson(StatusSummary instance) =>
+    <String, dynamic>{
+      'submitted': instance.submitted,
+      'inprogress': instance.inprogress,
+      'completed': instance.completed,
+      'total': instance.total,
     };

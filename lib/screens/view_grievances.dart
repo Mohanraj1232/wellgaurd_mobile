@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/models/grievance_model.dart';
+import 'package:wellguard_ai/constants.dart';
+import 'package:wellguard_ai/screens/grievance_details.dart';
 
 class ViewGrievancesScreen extends StatefulWidget {
   const ViewGrievancesScreen({super.key});
@@ -14,6 +16,7 @@ class ViewGrievancesScreen extends StatefulWidget {
 
 class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
   List<Grievance> _grievances = [];
+  StatusSummary? _statusSummary;
   bool _isLoading = true;
   String? _error;
 
@@ -31,11 +34,12 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
 
     try {
       final apiClient = DioClient.getApiClient();
-      final response = await apiClient.getAllGrievances();
+      final response = await apiClient.getUserGrievances();
 
       if (response.success && response.data != null) {
         setState(() {
-          _grievances = response.data!;
+          _grievances = response.data!.grievances;
+          _statusSummary = response.data!.statusSummary;
           _isLoading = false;
         });
       } else {
@@ -131,7 +135,143 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
               ? _buildErrorState()
               : _grievances.isEmpty
                   ? _buildEmptyState()
-                  : _buildGrievancesList(),
+                  : _buildGrievancesListWithSummary(),
+    );
+  }
+
+  Widget _buildStatusSummaryCard({
+    required String label,
+    required int count,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusSummary() {
+    if (_statusSummary == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.analytics, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Status Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMain,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Total: ${_statusSummary!.total}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildStatusSummaryCard(
+                label: 'Submitted',
+                count: _statusSummary!.submitted,
+                color: AppColors.accentInfo,
+                icon: Icons.pending_outlined,
+              ),
+              const SizedBox(width: 8),
+              _buildStatusSummaryCard(
+                label: 'In Progress',
+                count: _statusSummary!.inprogress,
+                color: AppColors.accentWarning,
+                icon: Icons.autorenew,
+              ),
+              const SizedBox(width: 8),
+              _buildStatusSummaryCard(
+                label: 'Completed',
+                count: _statusSummary!.completed,
+                color: AppColors.secondary,
+                icon: Icons.check_circle_outline,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrievancesListWithSummary() {
+    return RefreshIndicator(
+      onRefresh: _loadGrievances,
+      color: AppColors.primary,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildStatusSummary(),
+          ..._grievances.map((grievance) => _buildGrievanceCard(grievance)),
+        ],
+      ),
     );
   }
 
@@ -225,17 +365,16 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
     );
   }
 
-  Widget _buildGrievancesList() {
-    return RefreshIndicator(
-      onRefresh: _loadGrievances,
-      color: AppColors.primary,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _grievances.length,
-        itemBuilder: (context, index) {
-          final grievance = _grievances[index];
-          return _buildGrievanceCard(grievance);
-        },
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    return '${AppConstants.fullApiUrl}/$imagePath';
+  }
+
+  void _navigateToDetails(Grievance grievance) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GrievanceDetailsScreen(grievance: grievance),
       ),
     );
   }
@@ -251,465 +390,184 @@ class _ViewGrievancesScreenState extends State<ViewGrievancesScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _showGrievanceDetails(grievance),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Row
-              Row(
+        onTap: () => _navigateToDetails(grievance),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image Section
+            if (grievance.image != null)
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: Image.network(
+                  _getImageUrl(grievance.image),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppColors.bgMain,
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 40,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: AppColors.bgMain,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      grievance.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textMain,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(statusIcon, size: 14, color: statusColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          grievance.statusDisplay,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Description
-              Text(
-                grievance.description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-
-              // Footer Row
-              Row(
-                children: [
-                  Icon(
-                    Icons.business,
-                    size: 14,
-                    color: AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      grievance.departmentName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (grievance.createdAt != null) ...[
-                    Icon(
-                      Icons.calendar_today,
-                      size: 14,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      dateFormat.format(grievance.createdAt!),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-
-              // Show resolution if completed
-              if (grievance.status == 'completed' &&
-                  grievance.resolution != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
+                  // Header Row
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.check_circle,
-                        size: 16,
-                        color: AppColors.secondary,
-                      ),
-                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          grievance.resolution!,
+                          grievance.title,
                           style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.secondary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMain,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showGrievanceDetails(Grievance grievance) {
-    final statusColor = _getStatusColor(grievance.status);
-    final statusIcon = _getStatusIcon(grievance.status);
-    final dateFormat = DateFormat('MMM dd, yyyy \'at\' hh:mm a');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.95,
-        minChildSize: 0.5,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    // Status Badge
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(statusIcon, size: 18, color: statusColor),
-                            const SizedBox(width: 6),
+                            Icon(statusIcon, size: 14, color: statusColor),
+                            const SizedBox(width: 4),
                             Text(
                               grievance.statusDisplay,
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                                 color: statusColor,
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Description
+                  Text(
+                    grievance.description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(height: 20),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
 
-                    // Title
-                    Text(
-                      grievance.title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textMain,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Department
-                    _buildDetailRow(
-                      icon: Icons.business,
-                      label: 'Department',
-                      value: grievance.departmentName,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Date
-                    if (grievance.createdAt != null)
-                      _buildDetailRow(
-                        icon: Icons.calendar_today,
-                        label: 'Submitted On',
-                        value: dateFormat.format(grievance.createdAt!),
-                      ),
-                    const SizedBox(height: 20),
-
-                    // Description
-                    const Text(
-                      'Description',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                  // Footer Row
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business,
+                        size: 14,
                         color: AppColors.textMuted,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgMain,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        grievance.description,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          color: AppColors.textMain,
-                          height: 1.5,
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          grievance.departmentName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-
-                    // Resolution (if completed)
-                    if (grievance.status == 'completed' &&
-                        grievance.resolution != null) ...[
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Resolution',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      if (grievance.createdAt != null) ...[
+                        Icon(
+                          Icons.calendar_today,
+                          size: 14,
                           color: AppColors.textMuted,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.secondary.withValues(alpha: 0.3),
+                        const SizedBox(width: 4),
+                        Text(
+                          dateFormat.format(grievance.createdAt!),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  size: 18,
-                                  color: AppColors.secondary,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Resolved',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.secondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
+                      ],
+                    ],
+                  ),
+
+                  // Show resolution if completed
+                  if (grievance.status == 'completed' &&
+                      grievance.resolution != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: AppColors.secondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
                               grievance.resolution!,
                               style: const TextStyle(
-                                fontSize: 15,
-                                color: AppColors.textMain,
-                                height: 1.5,
+                                fontSize: 13,
+                                color: AppColors.secondary,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            if (grievance.resolvedAt != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Resolved on ${dateFormat.format(grievance.resolvedAt!)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Status Timeline
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Status Timeline',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _buildStatusTimeline(grievance),
-                    const SizedBox(height: 24),
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.textMuted),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textMuted,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textMain,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusTimeline(Grievance grievance) {
-    final statuses = ['submitted', 'inprogress', 'completed'];
-    final currentIndex = statuses.indexOf(grievance.status);
-
-    return Column(
-      children: List.generate(statuses.length, (index) {
-        final status = statuses[index];
-        final isActive = index <= currentIndex;
-        final isLast = index == statuses.length - 1;
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? _getStatusColor(status)
-                        : AppColors.bgMain,
-                    border: Border.all(
-                      color: isActive
-                          ? _getStatusColor(status)
-                          : AppColors.borderLight,
-                      width: 2,
-                    ),
-                  ),
-                  child: isActive
-                      ? Icon(
-                          index < currentIndex
-                              ? Icons.check
-                              : _getStatusIcon(status),
-                          size: 14,
-                          color: AppColors.textWhite,
-                        )
-                      : null,
-                ),
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 30,
-                    color: isActive && index < currentIndex
-                        ? _getStatusColor(statuses[index + 1])
-                        : AppColors.borderLight,
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(
-                  _getStatusLabel(status),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? AppColors.textMain : AppColors.textMuted,
-                  ),
-                ),
+                ],
               ),
             ),
           ],
-        );
-      }),
+        ),
+      ),
     );
-  }
-
-  String _getStatusLabel(String status) {
-    switch (status) {
-      case 'submitted':
-        return 'Grievance Submitted';
-      case 'inprogress':
-        return 'Under Review';
-      case 'completed':
-        return 'Resolved';
-      default:
-        return status;
-    }
   }
 }

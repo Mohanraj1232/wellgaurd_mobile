@@ -24,6 +24,13 @@ Map<String, dynamic> _$UserDataToJson(UserData instance) => <String, dynamic>{
       'emergencyContact': instance.emergencyContact,
     };
 
+EmergencyContact _$EmergencyContactFromJson(Map<String, dynamic> json) =>
+    EmergencyContact(
+      name: json['name'] as String,
+      whatsappNumber: json['whatsappNumber'] as String?,
+      smsNumber: json['phoneNumber'] as String?,
+    );
+
 Map<String, dynamic> _$EmergencyContactToJson(EmergencyContact instance) =>
     <String, dynamic>{
       'name': instance.name,

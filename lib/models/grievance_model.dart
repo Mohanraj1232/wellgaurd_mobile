@@ -67,7 +67,9 @@ class Grievance {
   factory Grievance.fromJson(Map<String, dynamic> json) {
     return Grievance(
       id: json['_id'] as String?,
-      userId: json['userId'] is Map ? json['userId']['_id'] : json['userId'],
+      userId: json['userId'] is Map 
+          ? json['userId']['_id']?.toString() 
+          : json['userId']?.toString(),
       departmentId: json['departmentId'],
       title: json['title'] as String,
       description: json['description'] as String,
@@ -124,4 +126,43 @@ class GrievanceRequest {
   factory GrievanceRequest.fromJson(Map<String, dynamic> json) =>
       _$GrievanceRequestFromJson(json);
   Map<String, dynamic> toJson() => _$GrievanceRequestToJson(this);
+}
+
+@JsonSerializable()
+class StatusSummary {
+  final int submitted;
+  final int inprogress;
+  final int completed;
+  final int total;
+
+  StatusSummary({
+    required this.submitted,
+    required this.inprogress,
+    required this.completed,
+    required this.total,
+  });
+
+  factory StatusSummary.fromJson(Map<String, dynamic> json) =>
+      _$StatusSummaryFromJson(json);
+  Map<String, dynamic> toJson() => _$StatusSummaryToJson(this);
+}
+
+class UserGrievanceResponse {
+  final List<Grievance> grievances;
+  final StatusSummary statusSummary;
+
+  UserGrievanceResponse({
+    required this.grievances,
+    required this.statusSummary,
+  });
+
+  factory UserGrievanceResponse.fromJson(Map<String, dynamic> json) {
+    return UserGrievanceResponse(
+      grievances: (json['grievances'] as List)
+          .map((item) => Grievance.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      statusSummary: StatusSummary.fromJson(
+          json['statusSummary'] as Map<String, dynamic>),
+    );
+  }
 }
