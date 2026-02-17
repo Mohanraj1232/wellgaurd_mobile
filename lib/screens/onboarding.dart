@@ -146,7 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _contacts.add(
                   Contact(
                     name: _nameController.text,
-                    phoneNumber: _phoneController.text,
+                    SmsNumber: _phoneController.text,
                     whatsappNumber: _whatsappController.text,
                   ),
                 );
@@ -179,7 +179,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final List<ContactData> contactsData = _contacts
           .map((contact) => ContactData(
                 name: contact.name,
-                phoneNumber: contact.phoneNumber,
+                SmsNumber: contact.SmsNumber,
                 whatsappNumber: contact.whatsappNumber,
               ))
           .toList();
@@ -358,9 +358,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (contact.phoneNumber.isNotEmpty)
+                              if (contact.SmsNumber.isNotEmpty)
                                 Text(
-                                  'Phone: ${contact.phoneNumber}',
+                                  'Phone: ${contact.SmsNumber}',
                                   style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 12,

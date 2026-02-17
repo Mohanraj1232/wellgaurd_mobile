@@ -28,12 +28,12 @@ EmergencyContact _$EmergencyContactFromJson(Map<String, dynamic> json) =>
     EmergencyContact(
       name: json['name'] as String,
       whatsappNumber: json['whatsappNumber'] as String?,
-      smsNumber: json['phoneNumber'] as String?,
+      smsNumber: json['smsNumber'] as String?,
     );
 
 Map<String, dynamic> _$EmergencyContactToJson(EmergencyContact instance) =>
     <String, dynamic>{
       'name': instance.name,
       'whatsappNumber': instance.whatsappNumber,
-      'phoneNumber': instance.smsNumber,
+      'smsNumber': instance.smsNumber,
     };

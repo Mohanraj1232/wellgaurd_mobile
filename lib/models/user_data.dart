@@ -28,7 +28,6 @@ class UserData {
 class EmergencyContact {
   final String name;
   final String? whatsappNumber;
-  @JsonKey(name: 'phoneNumber')
   final String? smsNumber;
 
   EmergencyContact({

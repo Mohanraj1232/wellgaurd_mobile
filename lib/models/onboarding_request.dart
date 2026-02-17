@@ -21,12 +21,12 @@ class OnboardingRequest {
 @JsonSerializable()
 class ContactData {
   final String name;
-  final String phoneNumber;
+  final String SmsNumber;
   final String? whatsappNumber;
 
   ContactData({
     required this.name,
-    required this.phoneNumber,
+    required this.SmsNumber,
     this.whatsappNumber,
   });
 

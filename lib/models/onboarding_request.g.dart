@@ -22,13 +22,13 @@ Map<String, dynamic> _$OnboardingRequestToJson(OnboardingRequest instance) =>
 
 ContactData _$ContactDataFromJson(Map<String, dynamic> json) => ContactData(
       name: json['name'] as String,
-      phoneNumber: json['phoneNumber'] as String,
+      SmsNumber: json['SmsNumber'] as String,
       whatsappNumber: json['whatsappNumber'] as String?,
     );
 
 Map<String, dynamic> _$ContactDataToJson(ContactData instance) =>
     <String, dynamic>{
       'name': instance.name,
-      'phoneNumber': instance.phoneNumber,
+      'SmsNumber': instance.SmsNumber,
       'whatsappNumber': instance.whatsappNumber,
     };

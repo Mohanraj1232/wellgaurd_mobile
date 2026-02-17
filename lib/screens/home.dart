@@ -412,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 24),
                       //Greivance button
                       Card(
-                        color: AppColors.primary,
+                        color: AppColors.secondary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -433,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
-                                    Icons.navigation,
+                                    Icons.report_problem,
                                     color: AppColors.textWhite,
                                     size: 32,
                                   ),
