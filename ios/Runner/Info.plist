@@ -37,6 +37,10 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>WellGuard AI needs location access to track your journey and send alerts to emergency contacts if needed.</string>
 	
+	<!-- Microphone Permission for Audio Recording -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WellGuard AI needs access to your microphone to record audio for grievance submissions.</string>
+	
 	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
 	<array>

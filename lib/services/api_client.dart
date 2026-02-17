@@ -199,6 +199,7 @@ class ApiClient {
     required String description,
     required String departmentId,
     String? imagePath,
+    String? audioPath,
   }) async {
     try {
       FormData formData = FormData.fromMap({
@@ -211,6 +212,16 @@ class ApiClient {
         formData.files.add(MapEntry(
           'image',
           await MultipartFile.fromFile(imagePath),
+        ));
+      }
+
+      if (audioPath != null) {
+        formData.files.add(MapEntry(
+          'audio',
+          await MultipartFile.fromFile(
+            audioPath,
+            filename: 'grievance_audio.m4a',
+          ),
         ));
       }
 

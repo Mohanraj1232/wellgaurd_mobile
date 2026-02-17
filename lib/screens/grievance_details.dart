@@ -63,9 +63,8 @@ class GrievanceDetailsScreen extends StatelessWidget {
       backgroundColor: AppColors.bgMain,
       body: CustomScrollView(
         slivers: [
-          // App Bar with Image
+          // App Bar
           SliverAppBar(
-            expandedHeight: grievance.image != null ? 250 : 0,
             pinned: true,
             backgroundColor: AppColors.primary,
             leading: IconButton(
@@ -79,56 +78,6 @@ class GrievanceDetailsScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            flexibleSpace: grievance.image != null
-                ? FlexibleSpaceBar(
-                    background: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          _getImageUrl(grievance.image),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: AppColors.bgCard,
-                              child: const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 64,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: AppColors.bgCard,
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        // Gradient overlay
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.5),
-                                Colors.transparent,
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : null,
           ),
 
           // Content

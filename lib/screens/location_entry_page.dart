@@ -22,8 +22,8 @@ class _LocationEntryPageState extends State<LocationEntryPage> {
   final _locationService = LocationService();
 
   // Hardcoded start location
-  static const double _hardcodedLatitude = 12.914293;
-  static const double _hardcodedLongitude = 80.168757;
+  static const double _hardcodedLatitude = 12.869462392059459;
+  static const double _hardcodedLongitude = 80.2165001240523;
 
   Position? _currentPosition;
   bool _isLoadingLocation = true;

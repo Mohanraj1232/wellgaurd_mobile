@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
 import 'package:wellguard_ai/models/grievance_model.dart';
@@ -18,6 +21,7 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   List<DepartmentDropdown> _departments = [];
   DepartmentDropdown? _selectedDepartment;
@@ -25,6 +29,12 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
   bool _isLoadingDepartments = true;
   bool _isSubmitting = false;
   String? _error;
+
+  // Audio recording state
+  String? _audioPath;
+  bool _isRecording = false;
+  int _recordingDuration = 0;
+  Timer? _recordingTimer;
 
   @override
   void initState() {
@@ -36,6 +46,8 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _recordingTimer?.cancel();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -154,6 +166,104 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
     }
   }
 
+  // ============= AUDIO RECORDING FUNCTIONS =============
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _startRecording() async {
+    try {
+      // Check and request permission
+      if (await _audioRecorder.hasPermission()) {
+        // Get temporary directory for storing the recording
+        final directory = await getTemporaryDirectory();
+        final filePath = '${directory.path}/grievance_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+        // Start recording
+        await _audioRecorder.start(
+          RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: filePath,
+        );
+
+        setState(() {
+          _isRecording = true;
+          _recordingDuration = 0;
+        });
+
+        // Start timer to track duration
+        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (mounted) {
+            setState(() {
+              _recordingDuration++;
+            });
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Microphone permission denied. Please enable it in settings.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error starting recording: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    try {
+      _recordingTimer?.cancel();
+      final path = await _audioRecorder.stop();
+      
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _audioPath = path;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error stopping recording: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteRecording() async {
+    if (_audioPath != null) {
+      try {
+        final file = File(_audioPath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        // Ignore file deletion errors
+      }
+    }
+    
+    setState(() {
+      _audioPath = null;
+      _recordingDuration = 0;
+    });
+  }
+
   Future<void> _submitGrievance() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -175,6 +285,7 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
         description: _descriptionController.text.trim(),
         departmentId: _selectedDepartment!.id,
         imagePath: _selectedImage?.path,
+        audioPath: _audioPath,
       );
 
       if (response.success) {
@@ -559,6 +670,159 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
                           ),
                         ],
                       ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Audio Recording Section
+            const Text(
+              'Voice Recording (Optional)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMain,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                children: [
+                  // Recording status / Audio preview
+                  if (_isRecording) ...[
+                    // Recording indicator
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: const BoxDecoration(
+                            color: AppColors.accentDanger,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Recording... ${_formatDuration(_recordingDuration)}',
+                          style: const TextStyle(
+                            color: AppColors.accentDanger,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Stop button
+                    ElevatedButton.icon(
+                      onPressed: _stopRecording,
+                      icon: const Icon(Icons.stop),
+                      label: const Text('Stop Recording'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentDanger,
+                        foregroundColor: AppColors.textWhite,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ] else if (_audioPath != null) ...[
+                    // Audio recorded preview
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.audiotrack,
+                            color: AppColors.secondary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Audio Recorded',
+                                style: TextStyle(
+                                  color: AppColors.textMain,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                'Duration: ${_formatDuration(_recordingDuration)}',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Delete button
+                        IconButton(
+                          onPressed: _deleteRecording,
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: AppColors.accentDanger,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    // Start recording button
+                    Column(
+                      children: [
+                        Icon(
+                          Icons.mic_none,
+                          size: 40,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to record audio',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: _startRecording,
+                          icon: const Icon(Icons.mic),
+                          label: const Text('Start Recording'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.textWhite,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 32),
