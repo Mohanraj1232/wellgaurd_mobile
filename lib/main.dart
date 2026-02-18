@@ -12,6 +12,7 @@ import 'package:wellguard_ai/screens/emergency_sos.dart';
 import 'package:wellguard_ai/screens/location_entry_page.dart';
 import 'package:wellguard_ai/screens/map_page.dart';
 import 'package:wellguard_ai/screens/news_feed.dart';
+import 'package:wellguard_ai/screens/chat_page.dart';
 import 'package:wellguard_ai/providers/journey_provider.dart';
 import 'package:wellguard_ai/theme/app_theme.dart';
 import 'package:wellguard_ai/theme/colors.dart';
@@ -46,7 +47,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'GrievX',
+      title: 'Greivex',
       theme: AppTheme.darkTheme,
       home: const SplashScreen(),
       routes: {
@@ -75,6 +76,7 @@ class MyApp extends StatelessWidget {
         '/location_entry': (context) => const LocationEntryPage(),
         '/map': (context) => const MapPage(),
         '/news_feed': (context) => const NewsFeedScreen(),
+        '/chat': (context) => const ChatPage(),
       },
     );
   }

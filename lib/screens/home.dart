@@ -255,11 +255,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   : _buildMainContent(),
             ),
             
-            // Floating SOS button
+            // Floating Chatbot button
             Positioned(
               bottom: AppSpacing.xl,
               right: AppSpacing.lg,
-              child: _buildFloatingSOS(),
+              child: _buildFloatingChatbot(),
             ),
           ],
         ),
@@ -751,27 +751,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
   
-  Widget _buildFloatingSOS() {
+  Widget _buildFloatingChatbot() {
     return ScaleTransition(
       scale: _pulseAnimation,
       child: GestureDetector(
         onTap: () {
-          HapticFeedback.heavyImpact();
-          Navigator.of(context).pushNamed('/emergency_sos');
-        },
-        onLongPress: () {
-          HapticFeedback.heavyImpact();
-          Navigator.of(context).pushNamed('/emergency_sos');
+          HapticFeedback.mediumImpact();
+          Navigator.of(context).pushNamed('/chat');
         },
         child: Container(
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            gradient: AppColors.dangerGradient,
+            gradient: AppColors.primaryGradient,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.accentDanger.withValues(alpha: 0.5),
+                color: AppColors.primary.withValues(alpha: 0.5),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
@@ -779,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           child: const Center(
             child: Icon(
-              Iconsax.call,
+              Icons.smart_toy_rounded,
               color: AppColors.textWhite,
               size: 28,
             ),
