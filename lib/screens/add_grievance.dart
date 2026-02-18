@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:wellguard_ai/theme/colors.dart';
 import 'package:wellguard_ai/services/dio_client.dart';
+import 'package:wellguard_ai/services/location_service.dart';
 import 'package:wellguard_ai/models/grievance_model.dart';
 
 class AddGrievanceScreen extends StatefulWidget {
@@ -41,10 +42,16 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
   int _recordingDuration = 0;
   Timer? _recordingTimer;
 
+  // Location state
+  double? _latitude;
+  double? _longitude;
+  bool _isLoadingLocation = true;
+
   @override
   void initState() {
     super.initState();
     _loadDepartments();
+    _fetchUserLocation();
   }
 
   @override
@@ -54,6 +61,24 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
     _recordingTimer?.cancel();
     _audioRecorder.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchUserLocation() async {
+    try {
+      final locationService = LocationService();
+      final position = await locationService.getCurrentPosition();
+      if (mounted && position != null) {
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          _isLoadingLocation = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingLocation = false);
+    }
   }
 
   Future<void> _loadDepartments() async {
@@ -403,6 +428,8 @@ class _AddGrievanceScreenState extends State<AddGrievanceScreen> {
         departmentId: _selectedDepartment!.id,
         imagePath: _selectedImage?.path,
         audioPath: _audioPath,
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (response.success) {

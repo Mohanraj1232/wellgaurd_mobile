@@ -201,12 +201,16 @@ class ApiClient {
     required String departmentId,
     String? imagePath,
     String? audioPath,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       FormData formData = FormData.fromMap({
         'title': title,
         'description': description,
         'departmentId': departmentId,
+        'latitude': latitude ?? 12.914293,
+        'longitude': longitude ?? 80.168757,
       });
 
       if (imagePath != null) {

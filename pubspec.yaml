@@ -36,6 +36,9 @@ dependencies:
   just_audio: ^0.9.36
   path_provider: ^2.1.2
   
+  # Speech to Text
+  speech_to_text: ^7.0.0
+  
   # UI Enhancement Packages
   google_fonts: ^6.2.1
   flutter_animate: ^4.5.0

@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:wellguard_ai/models/chat_message.dart';
 import 'package:wellguard_ai/services/chat_service.dart';
 import 'package:wellguard_ai/theme/colors.dart';
@@ -19,16 +21,62 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
+  // Voice input
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  bool _speechAvailable = false;
+  String _lastRecognizedWords = '';
+  double _soundLevel = 0.0;
+  late AnimationController _micPulseController;
+  late Animation<double> _micPulseAnimation;
+
   @override
   void initState() {
     super.initState();
+    _speech = stt.SpeechToText();
+    _initSpeech();
+    _setupMicAnimation();
+
     // Add a welcome message from the bot
     _messages.add(
       ChatMessage(
-        text: 'Hello! I\'m your Civic Chatbot. How can I help you today? You can ask me about filing grievances, checking status, or any civic issue.',
+        text:
+            'Hello! I\'m your Civic Chatbot. How can I help you today? You can ask me about filing grievances, checking status, or any civic issue.',
         isUser: false,
       ),
     );
+  }
+
+  void _setupMicAnimation() {
+    _micPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _micPulseAnimation = Tween<double>(begin: 1.0, end: 1.35).animate(
+      CurvedAnimation(parent: _micPulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize(
+      onError: (error) {
+        if (mounted) {
+          setState(() => _isListening = false);
+          _micPulseController.stop();
+          _micPulseController.reset();
+        }
+      },
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) {
+            setState(() => _isListening = false);
+            _micPulseController.stop();
+            _micPulseController.reset();
+          }
+        }
+      },
+    );
+    if (mounted) setState(() {});
   }
 
   @override
@@ -36,6 +84,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    _micPulseController.dispose();
+    if (_isListening) _speech.stop();
     super.dispose();
   }
 
@@ -105,6 +155,73 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         });
         _scrollToBottom();
       }
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _stopListening();
+    } else {
+      await _startListening();
+    }
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechAvailable) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Speech recognition not available on this device'),
+            backgroundColor: AppColors.accentDanger,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    _lastRecognizedWords = _controller.text;
+
+    setState(() => _isListening = true);
+    _micPulseController.repeat(reverse: true);
+
+    await _speech.listen(
+      onResult: (result) {
+        if (mounted) {
+          setState(() {
+            // Append new words to any existing text
+            final prefix = _lastRecognizedWords.isNotEmpty ? '$_lastRecognizedWords ' : '';
+            _controller.text = '$prefix${result.recognizedWords}';
+            _controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: _controller.text.length),
+            );
+          });
+        }
+      },
+      onSoundLevelChange: (level) {
+        if (mounted) {
+          setState(() => _soundLevel = level.clamp(0.0, 10.0));
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      localeId: 'en_US',
+      cancelOnError: true,
+      partialResults: true,
+    );
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    _micPulseController.stop();
+    _micPulseController.reset();
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+      });
     }
   }
 
@@ -316,78 +433,202 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildInputArea() {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 8,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        border: Border(
-          top: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.3)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.bgMain,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.3)),
-              ),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                style: const TextStyle(color: AppColors.textMain, fontSize: 14),
-                maxLines: 4,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Type your message...',
-                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-                onSubmitted: (_) => _sendMessage(),
-                textInputAction: TextInputAction.send,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 44,
-            height: 44,
+    final hasText = _controller.text.trim().isNotEmpty;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Voice listening overlay banner
+        if (_isListening)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              gradient: _isLoading ? null : AppColors.primaryGradient,
-              color: _isLoading ? AppColors.bgHover : null,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(22),
-                onTap: _isLoading ? null : _sendMessage,
-                child: Center(
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.textMuted),
-                          ),
-                        )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                ),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.15),
+                  AppColors.primaryDark.withValues(alpha: 0.08),
+                ],
               ),
             ),
+            child: Row(
+              children: [
+                // Sound level indicator bars
+                ...List.generate(5, (i) {
+                  final barHeight = 6.0 + (_soundLevel / 10.0) * 18.0 * ((i % 3 == 0) ? 1.0 : (i % 2 == 0 ? 0.7 : 0.5));
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    width: 3,
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 12),
+                const Text(
+                  'Listening...',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _stopListening,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentDanger.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.accentDanger.withValues(alpha: 0.3)),
+                    ),
+                    child: const Text(
+                      'Stop',
+                      style: TextStyle(color: AppColors.accentDanger, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+
+        // Main input row
+        Container(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 8,
+            top: 12,
+            bottom: MediaQuery.of(context).padding.bottom + 12,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            border: Border(
+              top: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _isListening
+                        ? AppColors.primary.withValues(alpha: 0.08)
+                        : AppColors.bgMain,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: _isListening
+                          ? AppColors.primary.withValues(alpha: 0.5)
+                          : AppColors.borderLight.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: const TextStyle(color: AppColors.textMain, fontSize: 14),
+                    maxLines: 4,
+                    minLines: 1,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: _isListening ? 'Speak now...' : 'Type your message...',
+                      hintStyle: TextStyle(
+                        color: _isListening ? AppColors.primary.withValues(alpha: 0.6) : AppColors.textMuted,
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                    textInputAction: TextInputAction.send,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+
+              // Mic button
+              ScaleTransition(
+                scale: _isListening ? _micPulseAnimation : const AlwaysStoppedAnimation(1.0),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _isListening
+                        ? AppColors.accentDanger
+                        : AppColors.bgHover,
+                    shape: BoxShape.circle,
+                    boxShadow: _isListening
+                        ? [
+                            BoxShadow(
+                              color: AppColors.accentDanger.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(21),
+                      onTap: (_isLoading) ? null : _toggleListening,
+                      child: Center(
+                        child: Icon(
+                          _isListening ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          color: _isListening ? Colors.white : AppColors.textSecondary,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // Send button
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: (_isLoading || !hasText) ? null : AppColors.primaryGradient,
+                  color: (_isLoading || !hasText) ? AppColors.bgHover : null,
+                  shape: BoxShape.circle,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(21),
+                    onTap: (_isLoading || !hasText) ? null : () {
+                      if (_isListening) _stopListening();
+                      _sendMessage();
+                    },
+                    child: Center(
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.textMuted),
+                              ),
+                            )
+                          : Icon(
+                              Icons.send_rounded,
+                              color: hasText ? Colors.white : AppColors.textMuted,
+                              size: 19,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

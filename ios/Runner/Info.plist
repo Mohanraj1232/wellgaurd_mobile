@@ -39,7 +39,11 @@
 	
 	<!-- Microphone Permission for Audio Recording -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>WellGuard AI needs access to your microphone to record audio for grievance submissions.</string>
+	<string>Greivex needs access to your microphone for voice input in the chatbot and audio recording for grievance submissions.</string>
+	
+	<!-- Speech Recognition Permission -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Greivex uses speech recognition to convert your voice into text for the chatbot.</string>
 	
 	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
