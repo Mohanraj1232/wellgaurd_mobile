@@ -67,6 +67,7 @@ flutter:
 
   assets:
     - lib/assests/logo.png
+    - lib/assests/splash_screen.png
 
 flutter_launcher_icons:
   android: true

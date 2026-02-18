@@ -2,8 +2,8 @@ class AppConstants {
   // API Configuration
   // Use 10.0.2.2 for Android emulator, or your computer's IP address for physical devices
   // Example: 'http://192.168.1.100' (replace with your actual IP)
-  static const String apiBaseUrl = 'http://10.0.2.2';  // Android emulator
-  static const int apiPort = 8080;
+  static const String apiBaseUrl = 'https://foster-postcentral-al.ngrok-free.dev/backend';  // Android emulator
+  //static const int apiPort = 8080;
   
   // Alternative configurations (uncomment the one you need):
   // static const String apiBaseUrl = 'http://192.168.1.100';  // Physical device (replace with your IP)
@@ -21,7 +21,7 @@ class AppConstants {
   static const String cancelRouteEndpoint = '/api/map/cancel-route';
 
   // Full URLs
-  static String get fullApiUrl => '$apiBaseUrl:$apiPort';
+  static String get fullApiUrl => '$apiBaseUrl';
   static String get loginUrl => '$fullApiUrl$loginEndpoint';
   static String get onboardingUrl => '$fullApiUrl$onboardingEndpoint';
   static String getUserInfoUrl(int userId) => '$fullApiUrl$userInfoEndpoint/$userId';
